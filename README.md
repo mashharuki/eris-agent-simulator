@@ -203,3 +203,6 @@ This is an **MVP / Proof of Concept** for research and experimentation, not inte
 <p align="center">
   <sub>Built by <a href="https://erisnet.xyz/">Nyx Foundation</a> · <em>Let your contracts face the swarm.</em></sub>
 </p>
+
+## 参考文献
+- [Deepwiki eris-agent-simulator](https://github.com/NyxFoundation/eris-agent-simulator)
