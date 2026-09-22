@@ -206,3 +206,4 @@ This is an **MVP / Proof of Concept** for research and experimentation, not inte
 
 ## 参考文献
 - [Deepwiki eris-agent-simulator](https://github.com/NyxFoundation/eris-agent-simulator)
+- [Deepwiki 概要解説](https://deepwiki.com/search/_0f750a90-72c7-4eed-be0e-72822fa533fa)
