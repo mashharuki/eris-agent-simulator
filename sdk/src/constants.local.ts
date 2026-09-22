@@ -7,7 +7,7 @@ import type { MarketLegs } from "./types.js";
 
 // Canonical fingerprint of the source deployments.json (ADR 0016 §2). The backtest CLI
 // compares it against the state dump manifest and, on mismatch, regenerates from the manifest's bundled deployments.
-export const DEPLOYMENTS_FINGERPRINT = "sha256:3014b5f31738d6476e20b0537cdb0a68da7be9b8a8f6721a21820adbd412c257";
+export const DEPLOYMENTS_FINGERPRINT = "sha256:4222255b6632b367d7dbf616e4650bc4f72e8f0d4355282f38d4547c1a83a909";
 
 export type LocalDeployment = {
   CHAIN_ID: number;
@@ -140,19 +140,19 @@ export const LOCAL_DEPLOYMENT: LocalDeployment | null = {
     usdcToken: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" as Address,
   },
   GMX: {
-    RoleStore: "0x56fC17a65ccFEC6B7ad0aDe9BD9416CB365B9BE8" as Address,
-    DataStore: "0x51C65cd0Cdb1A8A8b79dfc2eE965B1bA0bb8fc89" as Address,
-    Oracle: "0x6A59CC73e334b018C9922793d96Df84B538E6fD5" as Address,
-    EventEmitter: "0x114e375B6FCC6d6fCb68c7A1d407E652C54F25FB" as Address,
-    Router: "0x967AB65ef14c58bD4DcfFeaAA1ADb40a022140E5" as Address,
-    ExchangeRouter: "0x6e0a5725dD4071e46356bD974E13F35DbF9ef367" as Address,
-    OrderHandler: "0xb868Cc77A95a65F42611724AF05Aa2d3B6Ec05F2" as Address,
-    OrderVault: "0x193521C8934bCF3473453AF4321911E7A89E0E12" as Address,
-    LiquidationHandler: "0x3de00f44ce68FC56DB0e0E33aD4015C6e78eCB39" as Address,
-    Reader: "0x9D3DA37d36BB0B825CD319ed129c2872b893f538" as Address,
-    Config: "0x8D81A3DCd17030cD5F23Ac7370e4Efb10D2b3cA4" as Address,
+    RoleStore: "0x0000000000000000000000000000000000000000" as Address,
+    DataStore: "0x0000000000000000000000000000000000000000" as Address,
+    Oracle: "0x0000000000000000000000000000000000000000" as Address,
+    EventEmitter: "0x0000000000000000000000000000000000000000" as Address,
+    Router: "0x0000000000000000000000000000000000000000" as Address,
+    ExchangeRouter: "0x0000000000000000000000000000000000000000" as Address,
+    OrderHandler: "0x0000000000000000000000000000000000000000" as Address,
+    OrderVault: "0x0000000000000000000000000000000000000000" as Address,
+    LiquidationHandler: "0x0000000000000000000000000000000000000000" as Address,
+    Reader: "0x0000000000000000000000000000000000000000" as Address,
+    Config: "0x0000000000000000000000000000000000000000" as Address,
   },
-  GMX_MARKETS: { ETH_USD: "0x9b7EaAff073030ed37a535a82462f0d72A98FCCC" as Address },
+  GMX_MARKETS: { ETH_USD: "0x0000000000000000000000000000000000000000" as Address },
   AAVE: {
     PoolAddressesProvider: "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07" as Address,
     Pool: "0x7B6fCB97Fc1B74e16CBe577054a4426d3487837C" as Address,
@@ -213,8 +213,7 @@ export const LOCAL_DEPLOYMENT: LocalDeployment | null = {
       WBTC: { pool: "0xF2AdAad89d56D49C697B9907C7D66ef27d96f859" as Address, baseIndex: 1, quoteIndex: 0, stable: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" as Address },
     },
     gmx: {
-      WETH: { market: "0x9b7EaAff073030ed37a535a82462f0d72A98FCCC" as Address },
-      WBTC: { market: "0x1F434373eDaC9E4320281E26F96c31A58527C7dc" as Address },
+      WETH: { market: "0x0000000000000000000000000000000000000000" as Address },
     },
     aave: {
       WETH: {},
