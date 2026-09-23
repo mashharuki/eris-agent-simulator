@@ -25,10 +25,6 @@
       "type": "stdio",
       "command": "codegraph",
       "args": ["serve", "--mcp"]
-    },
-    "x402-arc-demo": {
-      "type": "http",
-      "url": "https://x402-arc-mcp.avp-104-106-107-a78.workers.dev/mcp"
     }
   }
 }
