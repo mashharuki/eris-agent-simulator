@@ -2,7 +2,7 @@
 
 # Configuration (config/local.yaml)
 
-The settings for a realtime run (`sim:realtime`) are managed in a single YAML (`config/local.yaml`) instead of being scattered across env vars. Run knobs (the nested `run` / `funding` / `limits` / `flow` / `stress` / `vuln` sections) and the agent roster (`agents`) can all be written in one file. The resolution order is `--config <path>` > `ERIS_CONFIG` > `config/local.yaml` > `config/example.yaml` (the committed template = zero-config default).
+The settings for a realtime run (`sim:realtime`) are managed in a single YAML (`config/local.yaml`) instead of being scattered across env vars. Run knobs (the nested `run` / `funding` / `flow` / `stress` / `vuln` sections) and the agent roster (`agents`) can all be written in one file. The resolution order is `--config <path>` > `ERIS_CONFIG` > `config/local.yaml` > `config/example.yaml` (the committed template = zero-config default).
 
 ```bash
 cp config/example.yaml config/local.yaml
@@ -25,7 +25,6 @@ Committed templates in `config/`: `example.yaml` (the default roster) / `lst.yam
 | `run` | run knobs (SEED, block count, realtime cap, enabled venues, mode, world reset unit) | `protocols: [uniswap, balancer, curve]` |
 | `market` | the fair-price OU parameters (volatility / kappa / drift, and their per-base forms) | `kappa: "0.004"` |
 | `funding` | initial distribution (a USDC-only distribution can eliminate initial directional exposure); `flowWethWei` / `flowUsdcUnits` / `flowBase` are the flow wallets' own inventory, sized so a `flowTrend` hold can be delivered on either side (issue #112) and so the background flow can sell the non-WETH bases as well as buy them | `wethWei: "0"`, `flowBase: { WBTC: "50000000" }` |
-| `limits` | per-round caps for agents | `agentWethWei: "1000000000000000000"` |
 | `flow` | orderflow bot intensity (how much it moves the market) | `uninformedMaxWethWei: "1000000000000000000"` |
 | `stress` | market stress events (default off) | [stress-events.md](stress-events.md) |
 | `lst` | the liquid-staking venue's calibration (yield clock, APY range, withdrawal queue) | `config/lst.yaml` |
@@ -34,6 +33,12 @@ Committed templates in `config/`: `example.yaml` (the default roster) / `lst.yam
 
 `sdk/src/runConfig.ts`'s `SCHEMA` is the authoritative list of keys; anything not in it warns as an
 unknown key rather than being silently applied.
+
+> **There is no config-level `limits` section.** A per-agent, per-order size cap used to live here
+> (`agentWethWei` / `agentUsdcUnits` etc.) and was removed outright, not just raised — see
+> [Writing Agents, Step 2](writing-agents.md#step-2-read-the-observation-agentobservation) for why
+> and what bounds a trade instead. `observation.limits` still exists at the *agent* level, but only
+> carries fee/slippage defaults now, never a size cap.
 
 ### Scoring-related keys in `run`
 

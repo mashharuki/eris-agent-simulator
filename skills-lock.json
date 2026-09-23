@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "account-activity": {
+      "source": "aave/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/mcp/skills/account-activity/SKILL.md",
+      "computedHash": "d9d6038d31f288807cee2845f6d0cc06b0922e5600f38a7efb960a688c3724ae"
+    },
     "configurator": {
       "source": "Uniswap/uniswap-ai",
       "sourceType": "github",
@@ -18,6 +24,12 @@
       "sourceType": "github",
       "skillPath": "packages/plugins/uniswap-trading-tools/skills/dca-bot/SKILL.md",
       "computedHash": "277b1ae25c013f4717184c4a9f20f64022e1b809c845e881918b719a5193f2dc"
+    },
+    "deleverage": {
+      "source": "aave/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/mcp/skills/deleverage/SKILL.md",
+      "computedHash": "ff3c81cf59407771625ff66639fd9315a06f39c46cf0c98a71b50b80be875d98"
     },
     "deployer": {
       "source": "Uniswap/uniswap-ai",
@@ -73,6 +85,12 @@
       "skillPath": "packages/plugins/uniswap-permissioned-pools/skills/permissioned-pools-issuer/SKILL.md",
       "computedHash": "3e1199f5d8941a265854451c0db4dfa297a9f855cbfc7515a38fa0d2e73dfa52"
     },
+    "safe-transactions": {
+      "source": "aave/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/mcp/skills/safe-transactions/SKILL.md",
+      "computedHash": "ed466f1ac4def37904544c938ed42a228fd5898a9a5a86086b5740c02f56db03"
+    },
     "swap-integration": {
       "source": "Uniswap/uniswap-ai",
       "sourceType": "github",
@@ -84,6 +102,12 @@
       "sourceType": "github",
       "skillPath": "packages/plugins/uniswap-driver/skills/swap-planner/SKILL.md",
       "computedHash": "bba0ce40281d2776de733d41344a70ec655eb5bdce959a70d7921516e137b624"
+    },
+    "tx-confirmation": {
+      "source": "aave/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/mcp/skills/tx-confirmation/SKILL.md",
+      "computedHash": "f8624df8e467c960539868070506e8924f48664afe80225ba3f12669033c11bd"
     },
     "v4-hook-generator": {
       "source": "Uniswap/uniswap-ai",
@@ -108,6 +132,12 @@
       "sourceType": "github",
       "skillPath": "packages/plugins/uniswap-viem/skills/viem-integration/SKILL.md",
       "computedHash": "90297ae94a88b74fd3c2cfbbba737712d538c38416101a2c8c039d9016220fe1"
+    },
+    "yield-analysis": {
+      "source": "aave/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/mcp/skills/yield-analysis/SKILL.md",
+      "computedHash": "654c106ff93e12da9de2c9b7703a3cb655ae2f0dd6ac298e1f32ab0b95b4cd91"
     }
   }
 }

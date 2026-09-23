@@ -170,6 +170,7 @@ Both run through the same observation, validation and signing path. See [Python 
 | [Architecture](docs/guide/architecture.md) | Separation of the environment (market mechanism + scorer) from agent execution, fair price distribution, scoring reconstruction |
 | [Configuration (config/local.yaml)](docs/guide/configuration.md) | The single-source YAML config, its sections, and how to write the roster |
 | [Market Stress Events](docs/guide/stress-events.md) | The nine event types — price gaps, whales, thinning books, depegs, slashes, drift and flow episodes — plus Aave liquidation victims |
+| [Agent-Created Markets](docs/guide/agent-markets.md) | MarketRegistry + permissionless lending (ADR 0022): the round-trip scoring rule, oracle-ownership as a trap signal, gas budget, owner-guard enforcement, reference agents |
 | [Dashboard and Explorer](docs/guide/dashboard.md) | Watching a run live and reading a finished one; the local Blockscout explorer and its lifecycle |
 | [The Practice Devnet](docs/guide/practice-devnet.md) | Running a period: registering participants, handing out the manifest, the real-chain mode, hosting the dashboard |
 | [Repository Layout](docs/guide/repository-layout.md) | Quick reference for the directory layout |
@@ -208,3 +209,5 @@ This is an **MVP / Proof of Concept** for research and experimentation, not inte
 - [Deepwiki eris-agent-simulator](https://github.com/NyxFoundation/eris-agent-simulator)
 - [Deepwiki 概要解説](https://deepwiki.com/search/_0f750a90-72c7-4eed-be0e-72822fa533fa)
 - [ASCON公式サイト](https://ascon.dev/)
+- [GitHub jev-trader](https://github.com/jarrodwatts/jev-trader)
+- [Jev (TypeSafe System One) — Finance & Trading Projects](https://gist.github.com/drillan/6916b16e8ea31a8ec36c8f59d6483150)
