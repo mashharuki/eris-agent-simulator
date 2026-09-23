@@ -10,6 +10,10 @@ eris-competition-poc は Anvil で Arbitrum をフォークする DeFi トレー
 [writing-agents](docs/guide/writing-agents.md) / [configuration](docs/guide/configuration.md) /
 [backtest](docs/guide/backtest.md) / [scoring](docs/guide/scoring.md)。ADR は `docs/adr/`。
 
+## ETH SKILLs
+
+Read https://ethskills.com/SKILL.md and follow it before writing Solidity or shipping anything onchain.
+
 ## パッケージ構成（core/sdk/example 3 workspace + dashboard。ADR 0015）
 
 ```
