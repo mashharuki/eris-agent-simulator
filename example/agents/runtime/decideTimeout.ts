@@ -1,3 +1,21 @@
+/**
+ * JP: このファイルには「1回の判断あたりの制限時間」と「戦略の起動タイムアウト」という、
+ * 意味の異なる2つの上限が定義されている。過去にこの2つを混同して（decide用の5秒をロードにも
+ * 流用して）31体中13体が起動時に落ちた事故（issue #100）があるため、CLAUDE.md にも太字で
+ * 「上限を取り違えた過去がある」と明記されている、このプロジェクトで最も間違えやすい箇所の一つ。
+ *
+ * - `DECIDE_TIMEOUT_MS`（5秒）: 規約§2.3。decide() 1回の呼び出しに与えられる時間。
+ *   worker thread 上で実行するので、同期の無限ループでも await が返らないケースでも
+ *   親スレッド側のこのタイマーで強制的に打ち切れる（同一スレッドの setTimeout では同期
+ *   無限ループを止められないので worker thread が必須）
+ * - `STRATEGY_STARTUP_TIMEOUT_MS`（60秒）: 戦略モジュール（agent.ts や LLM生成コード）を
+ *   新しい worker に読み込む（tsx でコンパイルする）ときだけに使う別の上限。5秒ではなく
+ *   coordinator の agents-ready 待機時間と同じ60秒にしてある
+ * - `STRATEGY_BACKOFF_AFTER`/`STRATEGY_BACKOFF_MAX_BLOCKS`: 3回連続で判断が失敗（throw/クラッシュ/
+ *   タイムアウト）すると、以降は毎ブロック worker を作り直さずバックオフする（1→2→4→…最大64
+ *   ブロック）。理由は「毎ブロック throw する戦略が2秒ごとにtsxを起動してCPU1コアを占有し続けた」
+ *   実測インシデント（`lp-provider`、issue #93 F-H）
+ */
 // The per-decision response bound (competition rules §2.3: 5,000 milliseconds).
 // StrategyRunner enforces it on the parent event loop and terminates the worker on expiry, so both
 // synchronous loops and unresolved awaits cost only that decision. Submissions are committed only

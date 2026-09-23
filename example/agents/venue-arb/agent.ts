@@ -5,6 +5,15 @@
 // WETH, so a rich pool -- the one it would sell into -- is not a trade it can make. It buys the
 // cheap venue instead and only sells once it is holding inventory. Taking the largest gap
 // unconditionally is what made this agent self-reject every action it produced (issue #54).
+//
+// JP: クロス venue（Uniswap/Balancer/Curve）裁定戦略。「fair price から一番乖離している venue」に
+// 向けて売買するのが基本方針だが、**自分が資金を出せる方向かどうか**を必ずチェックするのが
+// このコードの一番の教訓（issue #54: 昔のバージョンはこのチェックが無く、USDC-onlyで配布される
+// 競技環境で「WETHを持っていないのにWETHを売ろうとする」を359回連続で出し続け、全部runtimeに
+// rejectされてPnL 0.00 で終わった）。「持っていないことは何もしない理由にならない」——
+// 先に安い venue で買って在庫を作ってから、高い venue で売る、という2段構えで対応する。
+// prompt.md（`kind: improve`）が同梱されているので、このagent.tsはLLMによって書き換えられる
+// 対象でもある（実際に走るのは常にこのファイルの内容、改訂されるまでは）。
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { canFund, sized } from "../lib/affordable.js";
 

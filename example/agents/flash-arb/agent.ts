@@ -7,6 +7,17 @@
 // Note: because it depends on a flash-loan receiver contract + rawTx, it cannot be turned into a sandbox
 // executor (LLM self-improvement). If it isn't profitable it reverts at the repayment step (atomic, so no
 // capital loss, only gas).
+//
+// JP: 他の裁定戦略が「自分の残高の範囲内」でしか裁定できないのに対し、こちらは
+// **Aaveのフラッシュローンで一時的に自己資金を超える額を借りて**裁定する。全体を1つのtx
+// （`FlashArb`という受け手コントラクト内の`executeOperation`）で完結させるので、
+// 「借りる→買う→売る→(手数料込みで)返す」が同一トランザクション内でatomicに成立しなければ
+// tx全体がrevertする——つまり**利益が出ない場合は資金を一切失わず、ガス代だけが損失になる**
+// のが最大の特徴（コメントに明記の通り）。agent.ts側の役割は「方向とサイズを決めて
+// flashLoanSimpleを呼ぶだけ」で、実際の2レグ売買ロジックはコントラクト側（別途deploy済み・
+// `FLASH_ARB_ADDRESS`で決定論的に特定）にある。**LLM自己改善の対象にできない**唯一のパターン
+// （prompt.mdを付けられない）である点もコメントされている — コントラクトへの依存が
+// vmサンドボックス内では完結しないため。
 import { encodeAbiParameters } from "viem";
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { TOKENS } from "@eris/sdk/constants.js";

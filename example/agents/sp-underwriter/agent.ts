@@ -22,6 +22,22 @@
  * own and never competes with itself: being liquidated while underwriting liquidations would be a
  * different (and much worse) strategy.
  */
+/**
+ * JP: Liquity（CDPスタブルコイン venue = eUSD）のStability Pool（SP）を使う「引受人」役。
+ * `decideUnderwriting()`が純粋関数として切り出されているのが良い実践例 — チェーン読み書きの
+ * 副作用と判断ロジックを分離しているので、テストしやすく読みやすい。優先順位は明確に4段階:
+ *   1. **清算が最優先**（誰かのTroveがMCR割れ、または Recovery Mode で TCR割れ＋SPが全額
+ *      吸収できる場合）— SPは誰かが実際に`liquidate`を呼ばない限り一切配当を払わないので、
+ *      「自分のポジションを膨らませるため」だけでなく「そもそも配当を発生させるため」にも
+ *      清算コールする動機がある
+ *   2. **清算で得たETH担保をUSDCへ変換**（ETH建てで含み益として溜まっていくのはこの戦略が
+ *      選んでいない方向性リスクなので、スコアされる単位＝USDCへ戻す）
+ *   3. **SPの含み益（ETH gain）を確定申告**（`amountEusdWei: "0"`でwithdrawするのが
+ *      「預金元本はそのまま、含み益だけ引き出す」というLiquityプロトコルの慣用句）
+ *   4. **ポジション構築**（eUSDを買ってSPに預ける）
+ * `redemption-arb`が「デペグを償還で強制解消する」α側なのに対し、こちらは「清算リスクを
+ * 引き受けて割引担保を受け取る」保険引受側 — 同じLiquity venueでも全く別のスキルを使う好例。
+ */
 import type {
   AgentAction,
   AgentContext,

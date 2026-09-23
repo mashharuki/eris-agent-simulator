@@ -27,6 +27,21 @@
  * -- the only defence left is collateral, and a borrower who posted all of it has none. Default off,
  * because the interesting comparison is between two agents that differ in exactly that.
  */
+/**
+ * JP: `redemption-arb`/`sp-underwriter`がLiquity venueの「α側」「保険引受側」なら、
+ * こちらは**借り手側の防御**を担う参照実装。Aaveの清算（HFがある閾値を割ったら即座に全担保が
+ * 危険）と違い、Liquityには**3種類の異なるリスク**があるのが最大の学びどころ:
+ *   1. **清算**（ICR<110%）: Aaveと同じ「担保没収」型のリスク
+ *   2. **償還**: 誰かが持つeUSDが、**最もリスクの高いTrove（自分かもしれない）**の担保と
+ *      強制的に交換される。損失ではない（par分の対価は貰える）が、ポジションが縮む。
+ *      sorted list上で「自分の前に他人の負債がどれだけあるか」を守るゲーム
+ *   3. **Recovery Mode**: システム全体のTCRが150%を割ると、清算の閾値がMCR(110%)ではなく
+ *      **その時点のTCR**に変わる——自分が何もしなくても、他の借り手の行動でこの閾値が動く
+ * `ERIS_TROVE_SPEND_DEBT`という1つのフラグが実は全体を左右する分岐点: 借りたeUSDを
+ * **持ち続ける**なら、それ自体が価格下落時にICRを引き上げる返済原資になる（防御に強い）。
+ * **売ってUSDCにする**（＝本当の意味での「ETH担保でドルを借りる」）なら、残る防御は担保
+ * だけになる。CLAUDE.mdの実測: 200%保持組は無傷、125%で全額post+売却した組は清算され−13,140。
+ */
 import type {
   AgentAction,
   AgentContext,

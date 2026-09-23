@@ -17,6 +17,23 @@
  * The last one matters more than it looks. Scoring marks an LST position at what it could realize,
  * so a panicked end-of-run exit converts a mark into the same number minus fees.
  */
+/**
+ * JP: LST venue（issue #38）の全ての判断軸を1つのagentで扱う、このリポジトリで最も
+ * 複雑な戦略の1つ。LSTには常に**2つの価格が同時に存在する**（vaultが約束する償還レート
+ * `redemptionRateWeth`＝出金キュー待ちが必要 / 二次市場が今払う`marketPriceWeth`＝即時だが
+ * 割引あり）ので、5つの判断（claim/carry/harvest/stake/hold）は全て「どちらの価格を
+ * 取りに行くか、runの残り時間内にその選択が可能か」に帰着する。`queueFitsInRun()`
+ * （出金キューの待ち時間がrun終了までに収まるか）を毎回チェックしているのが肝——
+ * 間に合わないキューに入れてしまうと、run終了時点でまだキュー中の資産は「回収不能」として
+ * `scoring_unpriced_holdings`に回されてしまう。
+ *
+ * `LEVERAGE_TARGET_HF`（既定0=off）で opt-in するレバレッジド・ステーキングのループは
+ * CLAUDE.md でも言及されている実装上の教訓を体現している: 「借りられる限度額（headroom）
+ * 基準」ではなく「**目標HFに着地するサイズだけ借りる**」設計になっている理由は、
+ * headroom基準だと目標を行き過ぎて借入/返済が毎ブロック振動する（実測 24回/22回 →
+ * 修正後 2回/0回）から。HFが下限を割ったら他の何より先に返済する、という優先順位も
+ * levered-longと同じ設計思想。
+ */
 import type {
   AgentAction,
   AgentContext,

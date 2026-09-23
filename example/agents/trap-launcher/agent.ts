@@ -22,6 +22,20 @@
 //
 // It is deliberately not disguised in this repository. The interesting question is not whether an
 // agent recognises the name `trap-launcher`; it is whether it reads `oracleOwner` before it lends.
+//
+// JP: 「エージェントが作る市場」（ADR 0022）における**敵対者**の参照実装。フェーズ管理
+// （deploy → await-deploy → create-market → await-market → bait → post-collateral → wait
+// → harvest）を持つ`run(ctx)`型で、やっていることは一貫して**合法**（規約違反は一切していない）:
+// 1. 自分がownerの`ConfigurableOracle`と、market化されていない無価値なERC20（担保用）をdeploy
+// 2. その2つで90% LLTVの貸出市場を作る（オラクルは自分の言い値を返す）
+// 3. 撒き餌としてUSDCを少額supplyしてプールを空に見せない
+// 4. 無価値な担保をたっぷりpostする（自分のオラクルが高値をつけるので健全に見える）
+// 5. 他agentがそのUSDCをsupplyしてくるのを待つ
+// 6. 終了間際（`HARVEST_BLOCKS`前）に、貸せる分を全部borrowして引き出す
+// **市場-taker側が`oracleOwner`を見ていれば絶対に引っかからない罠**であり、
+// `market-taker`のコメントにある「1. verified 2. oracleOwner==0x0 ... 」というチェック順序の
+// 存在理由そのものがこのagent。担保はscorer側で無価値と評価されるので、trapperが得るのは
+// victimが失う分そのもの（価値を捏造しているのではなく、価値を移転しているだけ）。
 import type { Address } from "viem";
 import type { AgentContext, AgentObservation } from "@eris/sdk";
 import { TOKENS } from "@eris/sdk/constants.js";

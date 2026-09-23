@@ -9,6 +9,16 @@
 // an agent naive, it makes it broken: with USDC-only funding the sell leg has no inventory behind
 // it, the runtime rejects the action, and the agent scores exactly like one that chose not to trade
 // (issue #54 -- four bundled agents shipped with that bug).
+//
+// JP: これが**提出物のひな形**（README「Submission starter」）。`example/agents/my-arb/` を
+// コピー・改名して自分の戦略を書き始めるのが想定フロー。あえて何も洗練させていない
+// （サイジングもfee考慮も2レグ執行も在庫管理も無し）が、**資金チェック（canFund）だけは省略しない**
+// ——これは「素朴さ」ではなく「壊れているかどうか」の境界線だから（issue #54。持っていないtokenを
+// 売ろうとしてrejectされ続けるのは、venue-arbのコメントにもある通りこのリポジトリで最も
+// よく踏まれた罠）。もっと洗練された同系統の実装は `venue-arb`（このディレクトリより資金効率の
+// 良いサイジングと在庫獲得ロジックを持つ）や `clean-arb`/`multi-arb` を参照。
+// prompt.md（`kind: improve`）が同梱されているので、この最小実装のままでもLLMによる自己改善の
+// 対象になる。
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { canFund, sized } from "../lib/affordable.js";
 

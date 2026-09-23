@@ -6,6 +6,13 @@
  * artifact (out/<Name>.sol/<Name>.json) is read via sdk's readForgeArtifact (default out/ at the
  * repo root; override with ERIS_FORGE_OUT when the layout differs, e.g. a submission bundle).
  */
+/**
+ * JP: 参加者が「エージェントが作る市場」（ADR 0022。docs/guide/agent-markets.md 参照）などで
+ * 自分自身のコントラクト（罠を仕掛ける市場・救済用ロジック等）を deploy したいときのヘルパ。
+ * venue（Uniswap/Aave/GMX等）のデプロイは環境側（deployer/）の仕事であり、これはそれとは別に
+ * 参加者が自分の秘密鍵でコントラクトを立てるためのもの。`out/<コントラクト名>.sol/<名前>.json`
+ * という forge のビルド成果物（ABI + bytecode）を読み込んで deployContract する薄いラッパ。
+ */
 import type { Address, Chain, Hex, PublicClient, WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { readForgeArtifact } from "@eris/sdk/forge.js";

@@ -13,6 +13,17 @@
 // interface; competition-bundle compatible).
 //
 // The verdict is cached per address (contracts are immutable, so it's fixed during the run).
+//
+// JP: `discovery-arb-verify` が新規プールに手を出す前に叩く検証ロジック、2段構え:
+// 1. **dry-run**（決定論的・低コスト）: 実際に自分がやろうとしているswapと同じ条件で
+//    `eth_call`（実際にはtxを送らない）を打ち、正直な見積り関数（`getAmountOut`）の返り値と
+//    実際のシミュレーション結果を比較する。ズレていれば「見た目と動きが違う」＝罠と判定できる
+//    （サイズによって挙動を変える罠も、実際に使うサイズでdry-runすれば引っかかる）
+// 2. **LLMによるソース監査**（任意）: dry-runを通過しても、特定条件でだけ発動する隠れた罠は
+//    見つからないことがある。環境が配布する`disclosures/<addr>.json`（コードハッシュが実際の
+//    bytecodeと一致するか照合済みのソース）をLLMに読ませて判定させる — ただしこれは**参考ログ**
+//    であって、実際の採点は環境の実際の挙動（ラウンドトリップ規則）がground truthになる
+// 判定結果はアドレスごとにキャッシュされる（コントラクトはimmutableなのでrun中は不変のため）。
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { keccak256, type Address, type Hex, type PublicClient } from "viem";

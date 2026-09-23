@@ -13,6 +13,15 @@
  * to any asset set (multi-asset design). It attaches base to the action only when base!=="WETH" (WETH has no base
  * = byte-compatible with the legacy output).
  */
+/**
+ * JP: clean-arb（2レグのみ）の"元になった"版 — clean-arbが「単発1レグのフォールバックを
+ * 削除した」と説明していたのは、このmulti-arbのことを指している。2レグ機会が無い時は
+ * **単発1レグで一番乖離しているものをfairに戻しに行く**フォールバックを持っており、これが
+ * コストを無視して方向性リスクを取る（＝clean-arbより素朴で、WBTC投入イベントで大きく
+ * 損した実測がコメントに残っている: 60ブロックのcalmレジームで2レグ側−1490、単発側−1650）。
+ * clean-arbと読み比べることで「同じ土台から、どこを削るとどう安全になるか」が分かる教材的な
+ * ペアになっている。
+ */
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { marketViews, type MarketView } from "../lib/markets.js";
 

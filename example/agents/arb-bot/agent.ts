@@ -13,6 +13,17 @@
  *   6. priority fee = profit(wei) * PROFIT_FRACTION / estimated gas
  *   7. clamp(bid, defaultPriorityFee, maxPriorityFee)
  */
+/**
+ * JP: 他の裁定戦略が「どのvenueで・どちらの方向に・いくら」を決めるのに対し、この agent は
+ * さらに**priority feeの入札額**まで自分で計算する点が特徴的（他の多くの参照戦略は
+ * `obs.limits.defaultPriorityFeePerGasWei` をそのまま使うだけ）。期待利益（サイズ×乖離幅）の
+ * 一定割合（既定30%）をガス代の入札に回すことで、他agentとの同一ブロック内の優先順位争いに
+ * 勝ちやすくする — CLAUDE.mdの「competition signal」（ADR 0011。send.tsの`computeCompetition`）
+ * が自分で計算する「直近ブロックの最高入札額」を見て、それを上回る入札をする、という
+ * より洗練された戦略への出発点になる（ここでは固定割合だが、自分の戦略ではcompetition signal
+ * を参照してより賢く入札額を決めることもできる）。`ctx.log()`で`signals`（gap/profitUsdc/bidGwei
+ * 等の中間計算値）を残しているのも良い実践例 — decide型でも`ctx`は受け取れる（第2引数）。
+ */
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
 
 const PROFIT_FRACTION = Number(process.env.BID_PROFIT_FRACTION ?? "0.3");

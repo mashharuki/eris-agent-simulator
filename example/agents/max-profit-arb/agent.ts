@@ -14,6 +14,17 @@
  * Env vars:
  *   PROFIT_MAX_CEIL_FRACTION  fraction of expected profit allocated to the bid ceiling (default 0.8)
  */
+/**
+ * JP: multi-arb（機会選定：2レグ優先+単発フォールバック）と adaptive-arb（入札：競合の最高額+
+ * 利益上限でクランプ）の**両方を合体させた集大成版**。multi-arbが「乖離幅が最大のものを選ぶ」
+ * のに対し、こちらは複数の候補（2レグ・単発それぞれで複数base×venueの組み合わせ）を全部
+ * 評価してから**期待USDC利益が最大のものだけを実行**する（`profitUsdc`で比較・選択している
+ * 点がmulti-arbとの決定的な違い）。既存のbase保有残高も売却量に足し込んでいる
+ * （`existingBase + boughtBase`）のも芸が細かい点 — 端数の残留在庫を毎回少しずつ
+ * 溜め込んでしまう（未評価の方向性リスクになる）のを防いでいる。「同じリポジトリ内の
+ * 実証済みパーツを新しい機構を発明せずに組み合わせる」という設計方針そのものが、
+ * 自分で戦略を書く際の良い参考になる。
+ */
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
 import { marketViews, type MarketView } from "../lib/markets.js";
 

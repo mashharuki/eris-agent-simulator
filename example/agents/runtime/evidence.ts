@@ -24,6 +24,31 @@
  * §2.5) and the proxy records every call (§2.3), so this reports extremes, counts and windows --
  * the shape of the interval -- not the interval itself.
  */
+/**
+ * JP: 自己改善ループ（improve.ts の `buildRevisionContext`）がLLMに見せる「証拠」を作るファイル。
+ * 昔は「直近PnL2つ・直近12件の判断・最新observation1個」というスナップショットしかLLMに
+ * 見せておらず、「デペグで損した」のか「裁定ロジックがそもそも勝てない」のか区別する材料が
+ * 無かった（結果、全員のprompt.mdが「何もしない」を選び続けた）。この問題は環境側の制約では
+ * なく「履歴を取って結果を紐付ける係がいなかっただけ」だったので、それを担うのがこのファイル。
+ *
+ * 2つの主役:
+ * - **`MarketHistory`**（class, L237〜）: 観測した毎ブロックの市場スナップショット
+ *   （`MarketSample`: fair price・保有量・各venueのfair price乖離・stableのペグ乖離等）を
+ *   改訂間隔の間だけ保持し、`digestMarketHistory()` で**生ログではなく要約**
+ *   （最大/最小・bpsのバケツ集計・par割れウィンドウ等）としてLLMに渡す
+ * - **`TradeLedger`**（class, L635〜）: 送信した tx 1本ごとに「いつ判断したか」から
+ *   「着弾後何ブロックで含み損益がどうなったか」までを追跡する。send.ts の
+ *   `computeCompetition` が既に取得しているreceiptに相乗りするだけで、追加のRPC呼び出しは
+ *   増やさない。`digestTrades()` が「送信N件＝成功a＋revertでマイニングb＋未マイニングc」の
+ *   内訳と、trade自体が生んだ損益と「その時点の在庫をそのまま持っていたら得られた額
+ *   （＝市場の値動き分）」を**分離**して報告する — これが無いと「上げ相場で含み益が出ただけ」の
+ *   戦略が「勝っている」ように見えてしまう（実測: 何もしないagentが同じ期間で+6,562稼いだのに
+ *   取引した agent は+6,877の手柄にされていた、という事故が実際にあった）
+ *
+ * 要約が小さいのは意図的: LLM呼び出しのコンテキストサイズは参加者自身の推論コスト（規約§2.5）
+ * であり、推論プロキシは全呼び出しを記録する（§2.3）ため、「区間の形」（極値・件数・
+ * ウィンドウ）だけを渡し、生の区間そのものは渡さない。
+ */
 import type { AgentObservation } from "@eris/sdk/types.js";
 
 // How far a stable has to sit from a dollar before the digest calls it a departure. Par is a
@@ -232,6 +257,8 @@ export function marketMoveUsdc(
 
 /// One sample per observed block, kept for as long as the revision interval needs it.
 ///
+// JP: 「リングバッファに毎ブロックpushして、改訂間隔ぶんだけ保持する」市場履歴。
+// `push()` はブロックループから毎ブロック呼ばれ、`digestMarketHistory()`（下）が要約を作る。
 /// A ring rather than a growing array: the run is 360 blocks and the interval is 60, so the whole
 /// history is never wanted and keeping it would be a leak with a nice name.
 export class MarketHistory {
@@ -627,6 +654,9 @@ export const VALUE_BASELINE_SLACK_BLOCKS = 1;
 // hash, not as `bundle` (send.ts submit()).
 const GAP_TRADING_ACTIONS = new Set(["swap", "balancerSwap", "curveSwap"]);
 
+// JP: 送信した自分のtx1本ごとに「submitted」→「resolved（成功/revert/txIndex）」→
+// 「settled（着弾後の含み損益、市場分と取引分を分離）」とライフサイクルを追跡するクラス。
+// `digestTrades()`（ファイル末尾）がこれを「recent decisions」向けの要約文字列にする。
 /// The agent's own transactions, indexed by hash.
 ///
 /// Fed from three places, none of which costs a chain call: the sender when a transaction goes out,

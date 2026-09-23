@@ -9,6 +9,14 @@
 // The trap lives on the contract side, so discovery alone can't tell safety (verification is in
 // verifyContract.ts). The discovery layer is shared by discovery-arb / discovery-arb-verify; only the
 // presence of the verification gate differs (ADR 0014 §6).
+//
+// JP: 環境が用意した observation には「既知のvenue」しか載らないので、run途中に湧く新しいプール
+// （`vuln` レジーム）は自分でfactoryのイベント（`PoolCreated`）を監視して見つけるしかない —
+// これが本物のMEV/裁定botがやっていることのミニ実装。`refresh()` でfactoryログを索引し、
+// `findOpportunities()` で各プールのreserveから implied price を計算して fair price との乖離を
+// 機会として報告する。**このクラス自体は「安全かどうか」を一切判定しない**（それは
+// verifyContract.ts の仕事）— `discovery-arb`（無検証で即取引）と `discovery-arb-verify`
+// （検証してから取引）の違いは、この discovery layer の後に検証ゲートを挟むかどうかだけ。
 import type { Address, PublicClient } from "viem";
 import { erc20ApproveAbi, vulnFactoryAbi } from "./vulnAbi.js";
 

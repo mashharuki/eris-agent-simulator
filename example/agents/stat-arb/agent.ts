@@ -23,6 +23,18 @@
  *                                          to priority fee bidding.
  *   STAT_ARB_BURN_IN        (default 20)  minimum sample count before trading.
  */
+/**
+ * JP: `lib/rolling-stats.ts`の`RollingStats`（Welfordのオンライン統計）を使い、乖離幅gapの
+ * **固定閾値ではなくz-score**（過去の分布から見て何σ離れているか）でエントリー判定する。
+ * base（WETH/WBTC等）ごとに別々の`RollingStats`インスタンスを持つのが重要 —
+ * 「WBTCの乖離分布とWETHの乖離分布は別物なので、プールすると片方の平常状態がもう片方の
+ * 異常値と誤判定される」（ADR 0013）。`seedFromHistory()`で`obs.history`（直近20ブロック分の
+ * 価格履歴、read.tsが保持）を使って起動直後の統計をウォームスタートさせているのも実践的:
+ * 遅れて起動したagentが毎回20ラウンドの空回り（burn-in）を強いられないようにする工夫。
+ * サイジングも固定ではなく|z|に比例（`Z_ENTER`で下限、`Z_AGGRESSIVE`で上限に達する線形補間）、
+ * 入札額も期待値（EV）に比例させる——adaptive-arbの「competition signalで入札額を決める」
+ * とは違うアプローチ（固定割合×EV）だが、狙いは同じ「機会の大きさに応じて張る」思想。
+ */
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { RollingStats } from "../lib/rolling-stats.js";
 import { sized } from "../lib/affordable.js";

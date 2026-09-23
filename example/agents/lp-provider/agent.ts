@@ -1,3 +1,13 @@
+// JP: lp-mint（1回だけ建てて放置）の発展形 — **レンジ外れを検知して自動でリバランスする**
+// アクティブなLPマネジメント戦略。`decideAction()`の分岐は上から順に優先度になっている:
+// ①既存ポジションがレンジ外に近づいた（`shouldRebalance`）→ 引き出して手数料回収 →
+// ②手数料が溜まっている → 回収のみ ③ポジション無し・上限未満 → 新規mint（不足なら先に
+// `acquireInventory`でWETH側を買い増す）。「USDC-onlyで配られるのでWETHは自分で買わないと
+// LPの片側が作れない」という制約（issue #54と同じ根）への対応が`acquireInventory`の役割。
+// コメント32-35行目は実際にあった事故の記録: 旧`obs.limits.maxLpWethWei`等（撤廃済みの
+// サイズ上限フィールド）をそのまま読んでいたコードが`BigInt(undefined)`で毎回throwし、
+// 1トランザクションも送らずに全エポックを終えていた（issue #101, #93 F-D）——
+// フィールド撤廃の影響がいかに静かに壊れるかを示す実例。
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { sized } from "../lib/affordable.js";
 

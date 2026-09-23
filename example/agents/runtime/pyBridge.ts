@@ -1,3 +1,15 @@
+/**
+ * JP: Python で書いた戦略（`strategy.py` + 生成された `eris` SDK。docs/guide/python-agents.md 参照）
+ * を動かすための、`StrategyRunner`（TypeScript版）の**Python版対応物**。役割はほぼ同じ
+ * （decideのタイムアウト管理・失敗時の再生成・親プロセス側の資源管理）だが、実装が根本的に違う
+ * のは、Node の worker thread は当然 Python コードを実行できないから — 代わりに Python の
+ * **子プロセスを spawn し、標準入出力（stdin/stdout）越しに1行1JSONのメッセージをやり取りする**
+ * 独自のミニプロトコルになっている。`Worker.terminate()` に相当する子プロセスの kill も
+ * このファイルの責務（コメント48行目「Worker ではなく親がプロセスを所有するのは、
+ * `Worker.terminate()` では Python の子プロセスを reap できないから」）。
+ * `Sender`（送信）は共通のまま — Pythonから返ってきた action も TypeScript 側と同じ検証・
+ * 署名・送信経路を通る（Python側に秘密鍵を持たせない）。
+ */
 import {
   spawn,
   execFile,

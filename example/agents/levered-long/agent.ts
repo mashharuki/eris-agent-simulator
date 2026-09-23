@@ -22,6 +22,25 @@
  *   ERIS_LEVER_MIN_HF      deleverage below this (default target - 0.15, floored at 1.05).
  *   ERIS_LEVER_BASE        which base to be long (default WETH).
  */
+/**
+ * JP: このリポジトリで唯一「借入でレバレッジをかける」戦略（他の全戦略は裁定してポジションを
+ * フラットに戻す）。`decide()`内は4段階の優先順位付き判断になっている:
+ *   1. **HFが`MIN_HF`（既定1.65）を割ったら最優先で返済**（他の何より先。清算される前に自分で
+ *      対処する） — 現金（USDC）が無ければ保有base を全部売って現金化する
+ *   2. **遊んでいるbase残高をAaveへ担保として供給**（`ESCAPE_RESERVE_WEI`=1 WETHだけ手元に
+ *      残す。CLAUDE.md の「levered-longはESCAPE_RESERVE_WEIを自分で名前付けする」の実装本体 —
+ *      昔は環境がこの「退避準備金」の量を規則の上限として配っていたが、今は無いので自分で
+ *      量を宣言する必要がある）
+ *   3. **目標HFに向けて借り入れる**。重要なのは「借りられる限度額（headroom）を使い切る」の
+ *      ではなく「**目標HFにちょうど着地するサイズだけ**」借りること — Aaveのheadroomは
+ *      LTV基準、HFはLT（liquidation threshold）基準で別物なので、headroom基準で借りると
+ *      目標を行き過ぎて借入と返済を毎ブロック繰り返す振動が起きる（`lst-carry`が高くついて
+ *      学んだ教訓、とコメントにある）
+ *   4. **借りた現金でbaseを買い増す**（これでレバレッジが実際に効く — 借りるだけでは
+ *      ただの未使用ローン）
+ * G6（規約）が「レバレッジ上限を設けない」判断の妥当性を検証するための"probe"（実験台）
+ * という位置づけでもある。
+ */
 import type {
   AaveObservation,
   AgentAction,

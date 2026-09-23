@@ -1,5 +1,11 @@
 // Baseline "random trading". Kept deterministic since it serves as a yardstick for discrimination:
 // the RNG source is derived from the market (SEED) and agent id -> same SEED = same yardstick (before/after is reproducible).
+// JP: 「ランダムに取引するだけ」の対照群agent。noopとの違いは、noopが完全に何もしないのに対し
+// こちらは実際に売買を行う（ただし方向もサイズも乱数任せ）ので、「取引すること自体」と
+// 「良い判断をすること」の効果を切り分ける基準になる。決定論的な乱数（SEED×agentId由来）
+// なので、同じSEEDで走らせれば毎回同じ行動列を再現できる（run前後の比較に使えるようにするため）。
+// 「WETHしか触らない基準線」だとWBTC乖離イベントで常に「何もしなかった」ように見えてしまうため、
+// `marketViews()` で有効な全base（WETH/WBTC等）から乱数で1つ選ぶようになっている点に注意。
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { Rng } from "@eris/sdk/rng.js";
 import { balanceOf } from "../lib/affordable.js";

@@ -16,6 +16,18 @@
 //
 // This runs before the first read and costs one `eth_chainId` plus one `eth_getCode` per
 // load-bearing contract, all in a single batch.
+//
+// JP: エージェントが取引開始する**前**に「本当にこのチェーンで取引できるか」を3段階で確認する
+// （CLAUDE.md「agent プロセスも取引前に同じことを確かめる」の実装）:
+//   1. 疎通確認（RPCに届くか。自己ホスト参加者の起動レース対策で5回までリトライする）
+//   2. `run.chainId` と実際にノードへ接続して得た chainId が一致するか（不一致だと送信した
+//      tx は全部拒否されるが read は動き続けるので「生きているのに何も置いていない」状態になる）
+//   3. venue アドレスに実際に bytecode があるか（`checkDeployment`）
+// ここで exit しない場合の代替案が悲惨: RPCに届かない/アドレスが違うまま動き続けるエージェントは
+// 送信0件・PnL 0 のまま黙って走り続け、summary.json 上は「あえて何もしないことを選んだagent」と
+// 区別が付かなくなる（実測: コンテナ内起動でRPCがホストでなくコンテナ自身を指しており、
+// 起動10秒で25行ログを吐いた後、残り2分48秒を無言で過ごした事故がある）。
+// だからこそ、失敗したら黙って動き続けさせず**exit 1** する。
 import type { PublicClient } from "viem";
 import {
   checkDeployment,

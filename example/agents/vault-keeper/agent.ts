@@ -13,6 +13,17 @@
 // gain is the other side of.
 //
 // Self-driven (`run(ctx)`, ADR 0015 §3): deploy, wait for the address, deposit, hold, withdraw.
+//
+// JP: trap-launcherが「悪意ある作成者」なら、こちらは**「正直だがバグを持つ作成者」**の
+// 参照実装。`exploit-hunter`が本当に狙う対象はこちら側（trap-launcherの意図的な罠ではなく、
+// 「作った本人も気づいていないバグ」）。deployする`LeakyVault`のdeposit/withdrawは正しく動くが、
+// `rescue()`関数だけがgateされておらず誰でも中身を抜ける——本人はそれを知らずに普通に
+// USDCを入金し、期限前に引き出すつもりでいる。`exiting`フェーズでの「shares（自分の持分）が
+// 残っているか」だけでなく「**vault自体の残高**が残っているか」も両方確認している点に注目
+// （196行目のコメント: hunterに抜かれていた場合、sharesはまだ残っているが`withdrawAll`は
+// 空振りするだけなので、両方見ないと「抜かれた」ことに気づけない）。ラウンドトリップ規則の下、
+// hunterに抜かれれば vault-keeper は zero-scored の stranded position を抱えたまま損をする —
+// これがtrap-launcherの被害者側と対になる「honest victim」の実測ケース。
 import type { Address } from "viem";
 import { encodeFunctionData } from "viem";
 import type { AgentContext, AgentObservation } from "@eris/sdk";

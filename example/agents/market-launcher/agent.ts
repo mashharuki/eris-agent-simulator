@@ -18,6 +18,18 @@
 //
 // Self-driven (`run(ctx)`, ADR 0015 §3) rather than `decide`, because creation is a sequence with
 // state: deploy, wait for the address, create the market, supply, hold, withdraw.
+//
+// JP: trap-launcherと対になる「正直な作成者」の参照実装だが、こちらは**2つの市場を作る**
+// （trap-launcherはlending marketだけ）点で規模が大きい: ①owner無しimmutableな
+// `PriceFeedOracle`で担保付けした、控えめな80% LLTVのlending market ②環境が用意していない
+// 手数料ティア（500bps。既存プールは3000bps）でのUniswap V3プールを自分でcreate+seedする。
+// `Phase`ステートマシン（deploy-oracle→await-oracle→create-market→await-market→
+// create-pool→seed-pool→supplied→exit-pool→exiting→done）で複数ブロックにまたがる
+// 一連の処理を管理する — trap-launcher/vault-keeper/exploit-hunterと共通のパターン
+// （`run(ctx)`型の自走エージェントで複数ステップのセットアップが必要な場合の定石）。
+// 「作ったこと」と「正しい価格を設定したこと」は別問題（`POOL_MAX_DRIFT`のチェックで
+// 「プール作成は冪等だが、価格まで自分が決めたわけではない」ことを踏まえ、fairから外れた
+// プールへは資金を入れない）という点も丁寧に扱われている。
 import type { Address } from "viem";
 import { encodeFunctionData } from "viem";
 import type { AgentContext, AgentObservation } from "@eris/sdk";

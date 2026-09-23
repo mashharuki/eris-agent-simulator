@@ -1,5 +1,12 @@
 """Python port of my-arb: buy/sell the largest fundable gap, spending 10%."""
 
+# JP: my-arb（TypeScript版）のPython移植版。ロジックは完全に同一（fairとの乖離が最大かつ
+# 資金を出せるvenueを選んで、残高の10%を投入する）。TypeScript側の `example/agents/lib/affordable.ts`
+# に相当するものが `eris.affordable`（`can_fund`/`sized`）として、生成された `eris` SDK
+# （docs/guide/python-agents.md参照。`npm run gen:python-sdk` で作られる）に同梱されている。
+# 実行はランタイム側の PyBridge（example/agents/runtime/pyBridge.ts）が子プロセスとして
+# spawn し、stdin/stdout の1行1JSONプロトコルで `decide(obs, ctx)` を呼び出す — TypeScript版の
+# worker threadに相当するものを、Pythonでは子プロセスで代用している。
 import math
 from eris import Context, Observation, run
 from eris.actions import swap, balancer_swap, curve_swap, noop

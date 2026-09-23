@@ -6,6 +6,25 @@
  * observationFor = the same contract as the environment's scoring reconstruction). Fair price is
  * distributed on-chain (ADR 0006 §3), so the information is one block behind (applies to everyone equally; by design).
  */
+/**
+ * JP: `Reader.snapshot(bn)` が毎ブロック呼ばれ、その時点のチェーン状態から
+ * `AgentObservation`（decide() に渡される observation オブジェクト）を組み立てる。
+ * ここでの重要な点は、**環境側（coordinator の採点用リコンストラクション）と全く同じ
+ * `observationFor`（sdk/src/observation.ts）を使っている**こと — 「エージェントが見ている世界」と
+ * 「採点が見ている世界」が構造的に一致する（single source of truth。CLAUDE.md の
+ * 「単一の出典」パターンの実例）。
+ *
+ * 主な処理の流れ:
+ * 1. PriceFeed から fair price（環境が決める理論価格）と自分の残高を並列取得
+ * 2. multi-asset（WBTC等）対応: `extraBaseSymbols` があれば WETH 以外の base の fair price も取得
+ * 3. 各 protocol adapter の `readState` を並列実行（Uniswap/Aave/GMX等それぞれの現在状態）
+ * 4. 直近20ブロック分の価格履歴（`history`）を保持（momentum 判断用）
+ * 5. `blocksRemaining`（残りブロック数の見積り）を計算 — 自分が最初に観測したブロックを起点に
+ *    するので、起動が遅れたエージェントは実際より短い残り時間を見ることになる（起動遅延を
+ *    差し引いて補正している）。ブロック数上限と実時間上限の両方がある場合は早く尽きる方を採用
+ * 6. `agentMarkets`（ADR 0022）が有効なら registry の状態も、vuln 用のプール discovery
+ *    （規約§3.2 regime 7）も同じブロックのうちに読む
+ */
 import type { Address } from "viem";
 import { activeStables, getBalances } from "@eris/sdk/chain.js";
 import { MarketRegistryWatcher } from "@eris/sdk/agentMarkets.js";

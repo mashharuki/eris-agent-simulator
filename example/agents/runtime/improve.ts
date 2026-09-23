@@ -18,6 +18,19 @@
 //      Note what this is *not*: nothing rolls back on its own. An automatic "revert when value went
 //      down" needs a threshold and there is no defensible one (ADR 0018 §5) -- the previous
 //      implementation's never fired in 18 runs. Reverting is the model's call, via `revertTo`.
+//
+// JP: このファイルは自己改善（ADR 0018）の頭脳部分 — 「LLMに何を見せて、何を聞き、返ってきた
+// コードをどう安全に受け入れるか」を担う（実際にLLMのHTTP/CLI呼び出しをするのは llm.ts、
+// その結果を使ってブロックごとに戦略を走らせるループ制御は botMain.ts）。主な関数:
+//   - `improvePolicyState`/`loadImproveAgent`: prompt.md の存在・`kind: improve` マーカー・
+//     frontmatter（name/description/reviseEveryBlocks/model）を読む
+//   - `buildRevisionSystem`/`buildRevisionContext`: LLMに渡す system prompt と、現在の戦略ソース・
+//     直近の実績・**このrunで有効なaction名一覧**（`ACTION_TYPES_BY_PROTOCOL`。これを渡さないと
+//     「一度もswapしたことの無い戦略はswapの存在を知りようがない」）をまとめる
+//   - `parseRevision`: LLMの返答（JSON）を検証し `{notes, executorTs}` か `{notes, revertTo}` の
+//     どちらかに正規化する
+//   - `compileExecutor`: 生成されたコードを実際に「設置」できる関数へコンパイルする、
+//     このファイルで最も重要な安全装置（下のコメント参照）
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PYTHON_ACTION_VOCABULARY } from "@eris/sdk/pythonVocabulary.js";
@@ -262,6 +275,20 @@ export type CompileResult =
 // something outside the trading interface, not a containment boundary. The cheatcode check below is
 // the part that addresses intent, and it is what stops generated code from calling the privileged
 // RPCs that a participant's own code is also forbidden from calling.
+/**
+ * JP: LLMが生成したコードを実行可能な関数にする、2段階の安全ゲート。
+ * 1. **cheatcode 静的検査**（`findCheatcodeUsage`）: anvil の特権RPC呼び出しなどを文字列上で
+ *    検出し、1つでも見つかれば即座に reject（vmにすら渡さない）
+ * 2. **vm コンパイル**（`Script.runInContext(..., {timeout: 1000})`）: node:vm のサンドボックスで
+ *    関数式（`(async function decide(obs, ctx) {...})`）を**評価**する。ここが特に誤解しやすい点
+ *    — この1秒のtimeoutが覆うのは「関数を作る」という**式の評価**だけであり、**関数の中身が
+ *    実際に実行されるとき**（毎ブロックの decide 呼び出し）はこのtimeoutの保護範囲外。
+ *    つまり `while(true){}` のような無限ループ本体を持つ関数でも、定義自体は一瞬で終わるので
+ *    ここは普通に通ってしまう。**設置前の試運転は行わない**設計なので、実際に無限ループを
+ *    捕まえるのは、設置後に decide を worker thread 上で毎回実行し親スレッドが5秒を計測する
+ *    `DECIDE_TIMEOUT_MS`（decideTimeout.ts / strategyRunner.ts）の仕事になる。
+ *    手書きの戦略コードにも生成コードにも同じ上限がかかる。
+ */
 export function compileExecutor(source: string): CompileResult {
   const findings = findCheatcodeUsage(source);
   if (findings.length > 0)

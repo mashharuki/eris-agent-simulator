@@ -14,6 +14,16 @@
  * carries the registry entry and nothing else about a token the run does not price. See
  * lib/launchSwap.ts for the reads and the two transactions.
  */
+/**
+ * JP: `launch`レジーム（issue #29）向けの素朴な戦略 — 「見た瞬間に買い、一定ブロック保持して
+ * 売る」だけで、そのトークンに本当に需要（wave）が来るかどうかを判断しない。`positions`
+ * （Mapで自分が保有中のポジションを追跡）していることに注目: `decide`は毎ブロック呼ばれる
+ * ステートレスな関数のはずだが、実際には**モジュールレベルの変数で状態を持ち越す**ことが
+ * できる（lp-mintの`minted`と同じパターン）。「退出を常に入場より優先する」
+ * （`// ---- exits first ----`）のも market-takerと同じ設計思想で、ADR 0022公理2
+ * （鐘の時点のトークン残高は全員0）により、保有し続けることそのものがリスクだから。
+ * ペアの`launch-confirm`（下）は「waveが来たのを確認してから買う」より慎重な版。
+ */
 import type { Address } from "viem";
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
 import { TOKENS } from "@eris/sdk/constants.js";

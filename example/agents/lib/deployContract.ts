@@ -8,6 +8,17 @@
 //
 // The artifact comes from the forge output shipped in the submission bundle, read through the sdk's
 // single reader (`ERIS_FORGE_OUT` overrides the directory when the bundle's layout differs).
+//
+// JP: 「エージェントが作る市場」（ADR 0022）で自分のコントラクトをdeployするときのヘルパ。
+// `deployAction()` が forge のビルド成果物（ABI+bytecode）から `rawTx`（`to` 省略＝デプロイ）
+// action を組み立てる — ここで重要なのは、自分で秘密鍵を持って別途デプロイするのではなく、
+// **必ず通常のaction経路（runtime管理のnonce・ガス予算・送信キュー）を通す**こと。理由は
+// コメントにある通り、同じ鍵から2人の送信者が存在すると nonce が競合するため（実際にLSTの
+// 償還レートが更新tx同士の競合で丸ごとfreezeした事故があった）。
+// `findDeployedContracts()` は、自分がデプロイしたコントラクトのアドレスを**registryの発表を
+// 待たずに**自分でスキャンして見つける関数 — 作成者はregistryより1ブロック早く自分の
+// コントラクトの存在を知れる、というのがそもそも「作る誘因」になっている（docs/guide/
+// agent-markets.md 参照）。
 import {
   encodeAbiParameters,
   encodeDeployData,

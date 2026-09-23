@@ -25,6 +25,19 @@
  *   ERIS_CLAUDE_BIN / ERIS_CODEX_BIN  CLI binary override (default "claude" / "codex")
  *   ERIS_LLM_CALL_TIMEOUT_MS  timeout for one call (default 60000; CLI providers 120000)
  */
+/**
+ * JP: 自己改善ループ（botMain.ts の `runImproveLoop`）が戦略を改訂するときに叩く、LLM呼び出しの
+ * 抽象化レイヤ。`resolveLlmProvider(model)` が model 文字列を見て5系統に振り分ける:
+ *   - `codex[:model]` / `claude-cli[:model]` → サブスクリプションCLIを spawn（APIキー不要。
+ *     `codex login`/Claude Code の OAuth ログインがあれば動く。ローカル開発・自前検証向け）
+ *   - `claude...` → Anthropic SDK 経由（tool use で構造化出力）
+ *   - `openai:<model>` または `gpt-*`/`o1`/`o3`/`o4` → OpenAI互換 chat completions
+ *   - それ以外（既定）→ Ollama 系。JSON mode で出力させる
+ * **本番運営はこの全プロバイダを `ERIS_INFERENCE_BASE_URL`（運営の推論プロキシ）経由に統一する**
+ * — エージェント自身はAPIキーを一切持たず、`ERIS_INFERENCE_TOKEN`（HMAC(secret, agentId)。
+ * coordinator が配布）でプロキシに認証する。これにより「参加者が自分のAPIキーを盗まれる/
+ * 使いすぎる」リスクと「運営が全参加者の鍵を管理する」手間の両方を避けている。
+ */
 import { spawn } from "node:child_process";
 
 export type LlmMessage = { role: "user" | "assistant"; content: string };

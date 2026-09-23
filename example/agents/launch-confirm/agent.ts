@@ -13,6 +13,16 @@
  * Everything about the token is read from the chain through `ctx.publicClient`; see
  * lib/launchSwap.ts for the reads and the two transactions.
  */
+/**
+ * JP: launch-sniper（即買い）の「慎重版」。プールのSwapログを読んで**「連続何ブロック買いが
+ * 続いているか」**（`buyStreak`）を数え、`CONFIRM_BLOCKS`（既定3）ブロック連続で「buyの純額が
+ * プールのUSDC準備金の一定割合（`MIN_FLOW_BPS`）を超える」条件が満たされて初めて参入する。
+ * 「waveの立ち上がりの最初の数ブロックを取り逃す代わりに、dudを掴まないで済む」というトレード
+ * オフがコメントに明記されている（launch-sniperとの対比が学びどころ）。サイズも
+ * 「自分の残高の何%か」だけでなく「プールの準備金の何%か」（`MAX_RESERVE_BPS`）にもキャップを
+ * かけているのは、薄いプールに自分の注文自体が大きな価格インパクトを与えてしまうのを
+ * 避けるため。退出条件も「純売りに転じたら」「最大保持ブロック超過」「run終了間近」の3通り。
+ */
 import type { Address } from "viem";
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
 import { TOKENS } from "@eris/sdk/constants.js";

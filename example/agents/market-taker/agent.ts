@@ -15,6 +15,15 @@
 //   3. the code has not changed since the registry recorded it.
 //   4. it is not this agent's own market (trading with yourself is a transfer, not a trade, and
 //      §8 calls it a violation when it is done to move value between related entries).
+//
+// JP: 「エージェントが作る市場」（ADR 0022）の**利用者側**の代表例。自分では何も作らず、
+// 他人が作ったlending marketを`lib/agentMarkets.ts`の`assessEntry()`で審査してから使う。
+// 最重要なのはコード中の「---- unwind first, always ----」ブロック — **残りブロック数が
+// `EXIT_BLOCKS`（既定16）を切ったら、新しい機会がどれだけ良く見えても無視して撤収を最優先する**。
+// これはラウンドトリップ規則（ADR 0022 §1）の直接の帰結: 鐘が鳴った時点でまだ中にある価値は
+// 0だから、「脱出できる余裕があるか」が常に「機会の魅力」より優先される。返済→担保引き出し→
+// 供給ポジション解消の順で処理しているのも意図的（借りたものを先に返さないと担保を引き出せない
+// lending marketの一般的な制約に対応）。
 import type { AgentContext, AgentObservation } from "@eris/sdk";
 import { TOKENS } from "@eris/sdk/constants.js";
 import {

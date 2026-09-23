@@ -7,6 +7,12 @@
       "skillPath": "plugins/mcp/skills/account-activity/SKILL.md",
       "computedHash": "d9d6038d31f288807cee2845f6d0cc06b0922e5600f38a7efb960a688c3724ae"
     },
+    "coingecko": {
+      "source": "coingecko/skills",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1392674cf2cb367c7da9d53e13ac41aa60dfd6008edfad90023cfbf3b274422c"
+    },
     "configurator": {
       "source": "Uniswap/uniswap-ai",
       "sourceType": "github",

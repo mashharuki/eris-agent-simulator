@@ -30,6 +30,30 @@
  *   ERIS_AGENT_ID / ERIS_AGENT_DIR / ERIS_AGENT_PRIVATE_KEY / ERIS_RPC_URL /
  *   ERIS_PRICE_FEED_ADDRESS / ERIS_RUN_ID / ERIS_RUN_DIR / ERIS_CONFIG
  */
+/**
+ * JP: 全エージェント種別（ルール戦略/自走型/自己改善型）を1つのプロセス起動コマンドで動かす、
+ * ランタイムの本体（1088行、このリポジトリで最大のファイル）。coordinator は種別を区別せず
+ * 全員 `node --import tsx example/agents/runtime/bot.ts` で起動し、`ERIS_AGENT_DIR` が指す
+ * ディレクトリの**中身**（agent.ts が何を export しているか、prompt.md があるか）を見て
+ * このファイルが実行方法を決める。CLAUDE.md の「エージェントの書き方」表の実装そのもの。
+ *
+ * ファイル全体の構造（目印として `// ----` の見出しコメントが本文中に打ってある）:
+ *   - L150〜: `main()` の先頭 — 接続確認・鍵/RPC/PriceFeed の読み込み・protocol adapter初期化
+ *   - L250〜: 最新状態（read ループが更新し decide/submit が参照する変数群）
+ *   - L348〜: **エージェント種別の解決**（1 agent = 1 directory の判定ロジック本体。
+ *     `run` export か `decide` export か、prompt.md の `kind: improve` マーカー有無の
+ *     チェックもここ — マーカーの無い prompt.md を fail-fast させる場所）
+ *   - L520〜: ルール戦略（decide型）を駆動するループ
+ *   - L567〜: 自走型（run型）向けの observation 再構成ループ
+ *   - L648〜: 種別ごとの駆動の振り分け
+ *   - L668〜: **自己改善型のLLM改訂ループ**（ADR 0018。取引経路の外側でLLMが戦略コードを
+ *     書き換える。ファイルの半分近くを占める最大のセクション）
+ *
+ * 重要な注意点（CLAUDE.md より）: `ERIS_AGENT_FROZEN=1` は prompt.md を無視して戦略を固定する
+ * 「frozen 対照」用のフラグ（ADR 0018 §5。改善の効果を毎runで見えるようにするための比較対象を
+ * ディレクトリ複製無しで作れる）。プロンプト型（毎判断LLMが直接actionを返す方式）はADR 0018で
+ * 廃止済みで、今の prompt.md は「いつ・何を根拠に・どう直すか」という改訂方針だけを書く。
+ */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -346,6 +370,22 @@ async function main(): Promise<void> {
   });
 
   // ---- resolve the agent module (1 agent = 1 directory) ----
+  // JP: ここが CLAUDE.md で「prompt.md は同じ名前で意味が逆になっている」と警告されている罠の
+  // 実装本体。以下の順で判定する:
+  //   1. 廃止済みの ERIS_AGENT_MODE / ERIS_PROMPT_* が env にあれば即 fail-fast（黙って
+  //      ルール戦略として動いてしまうと「LLMが動いていると思い込んだまま何も改訂されない」
+  //      という最悪の結果になるため）
+  //   2. agent.ts と strategy.py が両方あれば拒否（言語は1つに決める）
+  //   3. `improvePolicyState()` で prompt.md の状態を判定:
+  //      - 旧名 `improve.md` が残っていれば fail-fast（ADR 0018 Amendment 1 以前の名残。
+  //        黙って「無改訂のルール戦略」として動くと、LLMが一度も関与しなかった事実が
+  //        どこにも記録されない）
+  //      - `kind: improve` マーカーの無い prompt.md も fail-fast（旧形式＝「この observation で
+  //        どう動くか」を今の形式＝「改訂方針」として system prompt に誤読させないため）
+  //   4. `ERIS_AGENT_FROZEN=1` なら prompt.md があっても改善ループを無効化（ADR 0018 §5 の
+  //      frozen 対照。ディレクトリを複製せずに「同じ戦略・改善なし」の比較対象を作れる）
+  //   5. agent.ts が `run` を export していれば自走型（改善ループとは併用不可 = 462行目）、
+  //      `decide` を export していればルール戦略、そのどちらでもなければエラー
   // agent.ts is always the strategy (ADR 0015 §2). If prompt.md sits beside it, the same strategy
   // runs at the same speed and an LLM is periodically offered the chance to rewrite it (ADR 0018).
   // The retired prompt mode put the LLM in the trade path instead, which cost 8-28 blocks per
@@ -671,6 +711,30 @@ async function main(): Promise<void> {
   // the model the current source plus how it has been doing, and select a new worker source if what comes
   // back is better. Every accept, decline, rejection and rollback is logged, because the previous
   // attempt at this (deleted src/llm) shipped a rollback that never once fired and nobody noticed.
+  /**
+   * JP: 自己改善型（ADR 0018）の中核ループ。上のブロックループ（毎ブロック decide を駆動する方）
+   * とは**別のタイミング**で動く — 取引は毎ブロック、改訂は `prompt.md` の
+   * `reviseEveryBlocks` で宣言された間隔ごと、という2つの独立したカデンスがある。
+   *
+   * 大まかな流れ:
+   * 1. **バージョン管理**: 提出時の戦略を version 0 として、以降 LLM が書き換えるたびに
+   *    新しいバージョン番号を採番して `versions[]` に積む（上書きではなく履歴として残す —
+   *    `revertTo` で番号指定して過去に戻せるようにするため）
+   * 2. **エポックをまたいだ状態の永続化**（issue #77）: `AgentStateStore` が
+   *    `versions`/`memory`（モデルが次の自分に残すメモ）を保存・復元する。backtest matrix の
+   *    `--agent-state-root` 無しでは単なる no-op（＝「継続しない」ことが正しい動作）。
+   *    `ERIS_AGENT_FROZEN` はこのループ自体に到達しない（frozen は常に `mode: "decide"` で
+   *    agent.ts から毎エポック開始するので、これが「対照群」たる所以）
+   * 3. **改訂タイミングが来たら** `buildRevisionContext`/`buildRevisionSystem` で
+   *    現在の戦略ソース・直近の実績（PnLの推移・「何もしなかった場合」との比較）・
+   *    このrunで有効なaction一覧をまとめ、`callLlm()` でLLMに投げる
+   * 4. **返ってきた `{notes, executorTs}` か `{notes, revertTo}` を `parseRevision` で検証**。
+   *    `revertTo` は指定バージョンを**新しいバージョンとして再インストール**（履歴を巻き戻さず、
+   *    「過去に戻った」という事実自体を記録として残す）。`executorTs: null` は「現状維持」で、
+   *    それ自体が次エポックへの有益な引き継ぎ情報として記録される
+   * 5. **自動ロールバックは無い**（ADR 0018 §5）。改訂が効いたかどうかの判断は常にモデルに委ねる
+   *    — 「勝手に閾値で巻き戻す」実装は過去に一度も発火しなかった実績があるため採用しない
+   */
   async function runImproveLoop(): Promise<void> {
     if (!improveAgent) return;
     const model =

@@ -15,6 +15,10 @@
  *   rs.update(-0.0005);
  *   rs.zscore(0.0008); // (0.0008 - mean) / std
  */
+// JP: 平均・分散をオンラインで（全サンプルを保持せず）計算するWelfordのアルゴリズム実装。
+// `stat-arb` エージェントが「pool価格とfair priceの乖離が、過去の分布から見て何σ離れているか」
+// (z-score) を判断材料にするために使う。ウィンドウ長で切り捨てる実装ではなく無制限に全履歴を
+// 効かせる点に注意（`windowHint` はただのメタデータで、実際の計算には影響しない）。
 export class RollingStats {
   private n = 0;
   private mu = 0;

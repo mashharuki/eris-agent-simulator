@@ -11,6 +11,16 @@
  * Env vars:
  *   ADAPT_CEIL_FRACTION  fraction of the opportunity value allocated to the bid ceiling (default 0.8; the rest is kept as net profit)
  */
+/**
+ * JP: arb-bot（固定割合で入札額を決める）の発展形。`obs.competition`
+ * （ADR 0011。send.tsの`computeCompetition`が自分で算出する「直近ブロックの最高入札額」
+ * 「直近の自分のtxのrevert率」）を実際に読んで、**勝つために必要な最小限**だけ上乗せして
+ * 入札する（＝競合の最高額 + マージン）。ただし機会そのものの価値（profit）を超えては
+ * 意味が無いので、上限（ceiling）もかける — 「入札しすぎて手数料負けする」ことも
+ * 「入札不足でフロントランされてrevertする」ことも両方避けるのが狙い。直近のrevert率が
+ * 高い（`recentRevertRate > 0.4`）ときはマージンを20%→60%に引き上げる、という
+ * フィードバックループも持っている。
+ */
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
 import { sized } from "../lib/affordable.js";
 import { marketViews } from "../lib/markets.js";

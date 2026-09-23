@@ -8,6 +8,30 @@
  * - gas manager (ADR 0011 §4; economicGas only): when the ETH balance drops below the threshold, auto-refill via WETH unwrap /
  *   USDC->WETH swap
  */
+/**
+ * JP: `decide()` が返した action（あるいは `ctx.submit()` で送った action）を実際にチェーンへ
+ * 送信する `Sender` クラス。「戦略コードは何を送るか決めるだけ、実際にどう送るかはこのファイルの
+ * 仕事」という分離がポイント。CLAUDE.md の「取引は戻り値かctx.submit()に集約」の受け皿がここ。
+ *
+ * 大きく4つの役割がある:
+ * 1. **署名・送信・nonce管理**: `parseAction`/`validateAction` で action を検証 →
+ *    protocol adapter の `buildTxs` で実際の calldata を組み立て → 自分の秘密鍵で署名して送信。
+ *    nonce は自前管理（`allocNonce`）で、送信は `enqueueSend` により直列化される（並列に送ると
+ *    nonce が競合するため）
+ * 2. **mempool 活動の自己申告**（ADR 0006 §5）: submitted / submit_failed / rejected を
+ *    `runs/<id>/agents/<id>.jsonl` に書く。これが無いと coordinator は「送信されたが
+ *    まだマイニングされていない」tx を数えられない
+ * 3. **competition signal の自己算出**（ADR 0011）: 自分の直近 tx がどの txIndex に入ったか・
+ *    revert したか、直近ブロックで一番高い priority fee を払ったのは誰か、を**環境の特権を
+ *    使わず**チェーンの公開情報から自分で導出する（本物の MEV サーチャーがやることと同じ）
+ * 4. **gas manager**（`economicGas` プロファイルのみ）: ETH 残高が閾値を割ったら
+ *    WETH→ETH のアンラップ、それも尽きたら USDC→WETH スワップで自動補充する
+ *
+ * また **ガス予算の強制**もここで行う（`MAX_TX_GAS`/`MAX_AGENT_BLOCK_GAS`、既定どちらも
+ * 30,000,000。docs/guide/agent-markets.md 参照）。tx を1本送るたびに `gasByRound` へ加算し、
+ * 同じラウンド内で上限を超える送信はローカルで reject する — ゲートウェイ側の 403 入口拒否・
+ * run後の blocks.csv 検査と合わせて、同じ数字を3か所でチェックする設計になっている。
+ */
 import { encodeFunctionData, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { wethAbi } from "@eris/sdk/abis.js";

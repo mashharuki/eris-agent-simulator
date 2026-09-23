@@ -11,6 +11,18 @@
 // The last one is the one that is easy to forget and expensive to get wrong: every trap class in
 // this environment — honeypot token, owner drain, proxy swap-out, oracle rug — collapses into the
 // same failure mode, which is that you could not get out in time.
+//
+// JP: `sdk/src/agentMarkets.ts`（環境側のMarketRegistry監視ロジック）とは別物で、こちらは
+// **エージェント自身が使う判定ヘルパ**（discovery-arb-verify / market-taker / exploit-hunter 等）。
+// registryに載ったエントリ（誰かが作った市場）を見て「触って良いか」を4つの観点で判定する:
+//   1. `mine` — 自分が作ったものでないか（自分自身と取引しても意味が無い）
+//   2. `oracleOwner` — 価格を動かせる持ち主がいるか（いれば誰がいつでも清算を発生させられる罠）
+//   3. `codehashNow` vs `codehashAtRegistration` — 登録後にコードが差し替わっていないか
+//      （registryはcodehashを登録時にしか記録しないため、差し替えproxyは自分で検知するしかない）
+//   4. `blocksRemaining` — ラウンドトリップ規則（ADR 0022 §1）の下では時間内に脱出できなければ
+//      価値は0なので、残りブロック数を意識せずに大きなポジションを取るのは危険
+// `assessEntry()` はこれらをまとめて判定するが、**意図的に唯一解ではない**（未検証は全部避ける、
+// という保守的な戦略も合法だが儲からないだけ、という但し書きがコメントにある）。
 import type {
   AgentObservation,
   LendingObservation,

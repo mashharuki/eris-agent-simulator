@@ -1,3 +1,24 @@
+/**
+ * JP: strategyRunner.ts（親スレッド）から起動される **worker thread 側**の実体。
+ * `.mjs` のローダー（strategyWorker.mjs）経由で読み込まれ、実際の戦略コード
+ * （`agent.ts` の `decide`/`run`、または LLM が生成した executor コード）はここで初めて import
+ * ・実行される。
+ *
+ * 起動時（一度きり）: `data.source.kind` に応じて3通りに分岐 —
+ *   - `"module"`: `agent.ts` を import し、`run` を export していれば自走型（`mode: "run"`）、
+ *     `decide` を export していればルール戦略（`mode: "decide"`）と判定
+ *   - `"executor"`: LLM が生成した関数式のソース文字列を `compileExecutor`（improve.ts）で
+ *     `vm` コンパイルして実行可能な関数にする
+ *   - `"python"`: ここでは扱わない（PyBridge という別経路）
+ *
+ * メッセージ受信時（判断のたびに毎回）: 親から `{id, observation}` を受け取り `decide()` を
+ * 呼ぶ。ここで渡す `ctx.publicClient` は `readOnlyClient()` でラップした読み取り専用クライアント
+ * （walletClient は存在しない）。`ctx.submit()`/`ctx.log()` は実際の送信・ログ書き込みをせず、
+ * `postMessage` で親スレッドに投げるだけ — 実際の署名・送信（Sender）やファイル書き込み
+ * （agentLog）は親プロセス側の責務で、worker は「判断すること」だけに専念する設計。
+ * `active` フラグは、タイムアウトで親側がこの呼び出しを見捨てた**後**に古い `submit`/`log` が
+ * 届いても無視するためのガード（「捨てられた判断のコールバックに取引させない」という不変条件）。
+ */
 import { parentPort, workerData } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
 import type { AgentContext, AgentModule, DecideFn } from "@eris/sdk/agent.js";

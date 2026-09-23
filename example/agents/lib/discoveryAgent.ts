@@ -8,6 +8,14 @@
 // ctx.publicClient, discover new pools from factory logs, and send actions via ctx.submit (signing,
 // nonce, and self-report logging are handled by the runtime). New pools aren't in the adapter
 // registry, so hit them with rawBundle/rawTx.
+//
+// JP: `discovery-arb`（無検証・見つけたら即取引）と `discovery-arb-verify`（`verifyContract` で
+// dry-run・codehash・任意でLLM判定してから取引）が共有する本体。両者の違いは `opts.verify` の
+// 有無だけで、それ以外のロジック（新規プールの探索・approve・裁定サイズ決定）は完全に共通。
+// `liquidator` と同じ `run(ctx)` 型（自走型）を使うのは、observationに載らない新規プールを
+// 自分でfactoryログから見つける必要があるため。実測（CLAUDE.mdより）: 無検証側は −5,306、
+// 検証側は +721 と、この差が「vuln レジームを公式化するには検証系agentがロスターに必要」
+// という判断の根拠になった。
 import { encodeFunctionData, maxUint256 } from "viem";
 import type { Address } from "viem";
 import type { AgentContext } from "@eris/sdk";

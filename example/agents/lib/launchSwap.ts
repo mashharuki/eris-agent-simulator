@@ -11,6 +11,14 @@
 // actions: the registered `swap` action resolves its pool from the market set, and a pool that was
 // created a block ago is by definition outside that set. Same shape as discoveryAgent's
 // approve-then-swap, against the environment's router instead of a bespoke AMM.
+//
+// JP: `launch` レジーム（issue #29。run途中で新トークンが2〜3個上場する）用のヘルパ。
+// 上場直後のトークンは`swap` actionが対象とする「既知のmarket set」に含まれないため、
+// 登録済みの`swap` actionでは触れず、**生calldata（rawTx/rawBundle）で直接Uniswap V3の
+// SwapRouterを叩く**必要がある — poolDiscovery.ts の考え方（新規物はobservationに現れないので
+// 自分でチェーンから読む）と同じパターンがここでも繰り返されている。ADR 0022公理2により
+// 「鐘の時点のトークン残高は誰にとっても0」なので、環境は一切このトークンの価値を評価しない
+// （通り抜けたUSDCだけが数える）。`launch-sniper`/`launch-confirm` が使用する。
 import {
   encodeFunctionData,
   parseAbi,

@@ -10,6 +10,16 @@
  * The set of bases is derived from the keys of observation.fairPricesUsd (the coordinator/directShim
  * carries the fair price of every active base). Bases with no venue price at all are excluded.
  */
+/**
+ * JP: multi-asset（WBTC等。ADR 0013）対応の戦略を書くときに、observation の非対称な形
+ * （WETHだけ `protocols.uniswap.pool` 直下にあり、他baseは `protocols.uniswap.markets["WBTC/USDC"]`
+ * のようにネストされている）を気にせず済むようにする正規化ヘルパ。`marketViews(obs)` を呼ぶと
+ * 有効な全base × 全venueが同じ形（`MarketView[]`）で返るので、戦略のロジックをbase非依存に
+ * 書ける。`feeBps`/`sellPrice`/`buyPrice` の扱いが複雑なのは、venueによって「片側だけの
+ * 手数料込み価格」しか無い場合と「両側の実行可能価格」がある場合があり、後者を優先しつつ
+ * 前者にフォールバックする実装になっているため（フラット30bpsで近似すると、不均衡時の
+ * 実コストを過小評価し「幻の裁定機会」に見えてしまう罠があった — WBTCで全agentが損した実測）。
+ */
 import type { AgentObservation } from "@eris/sdk/types.js";
 
 export type AgentProtocol = "uniswap" | "balancer" | "curve";

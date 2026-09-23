@@ -18,6 +18,21 @@
  * Note: when not running under the coordinator (ERIS_RUN_DIR unset) the log is a no-op.
  *       A log write failure never stops strategy execution (it is swallowed).
  */
+/**
+ * JP: `ctx.log({...})` で毎ラウンドの判断理由・シグナル・内部状態を書き出すためのロガー実装。
+ * `runs/<runId>/agents/<agentId>.jsonl` に1行1JSONで追記していくだけのシンプルなものだが、
+ * 2つの実運用上の配慮が入っている:
+ * 1) **セグメント運用（ADR 0021 §6）への対応**: practice devnet ではチェーンは止めずに
+ *    ラン用ディレクトリだけを日次で切り替える。プロセス自体は生き続けるので、書き込み先を
+ *    起動時に1回だけ確定させると、ディレクトリが切り替わった後もずっと古いセグメントに書き
+ *    続けてしまい「このエージェントは(新しいセグメントで)一度もログを書かなかった」ように
+ *    見えてしまう。`ERIS_RUN_DIR_POINTER` というファイルの mtime を都度チェックし、
+ *    変わっていたら書き込み先を読み直すことでこれを避けている
+ * 2) **ログによるディスク圧迫の防止（規約4.12）**: `runs/` は agent コンテナに書き込み可能な
+ *    状態でマウントされるため、無制限にログを吐く戦略がホストのディスクを溢れさせる攻撃になり
+ *    得る。1エージェントあたりの合計サイズ上限（既定64MiB）と1エントリあたりの上限
+ *    （既定256KiB）を設け、超えたら通知を1回書いて以降は黙って捨てる
+ */
 import { appendFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { safeStringify } from "@eris/sdk/logger.js";

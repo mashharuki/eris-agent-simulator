@@ -14,6 +14,19 @@
 //      a strategy that chose not to trade, so the failure is silent.
 //   2. When there is a choice of venue, choose among the ones you can fund. An agent holding only
 //      USDC can still arbitrage -- it buys the cheap venue rather than selling the rich one.
+//
+// JP: CLAUDE.md の「発注上限は無い」節で触れられている共通ヘルパ本体。昔は `obs.limits` に
+// 環境が配る固定の発注上限があり、みんなそれを見てサイズを決めていた（＝全員が保有額とも
+// 相場の良し悪しとも無関係に同じサイズで張っていた）。今はその上限自体が撤廃されたので、
+// **「自分の残高のうち何%を1回の注文に使うか」を各エージェントが自分で決める**必要があり、
+// この決定を毎回書かずに済むようにしたのが `sized(obs, token, bps)`。
+//   - `balanceOf`: token種別ごとに正しいフィールド（USDC/WETH/その他base/stable）から残高を読む
+//   - `affordable`: 欲しい量と実際の残高の小さい方を返す。ダスト（1 USDC/0.001 WETH未満）なら
+//     0を返す — 0は「他のレグを選ぶか何もしない」の合図であって「とりあえず送って
+//     runtimeに弾かせる」の代わりではない
+//   - `sized`: 残高の bps（basis points、1万分の1単位）を指定してサイズを決める。例えば
+//     `sized(obs, "USDC", 500)` は USDC残高の5%を使う、という意味
+//   - `canFund`: そもそも最低額を持っているかどうかの事前チェック
 import type { AgentObservation } from "@eris/sdk";
 
 // Dust floor. Below this a leg is not worth a transaction: the gas and the fee eat it, and the

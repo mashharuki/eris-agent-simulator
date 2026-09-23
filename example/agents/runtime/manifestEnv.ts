@@ -9,6 +9,12 @@
 //
 // Kept in its own module with no imports beyond node:fs, so bot.ts can call it before its dynamic
 // import of the runtime, and so it can be tested without starting an agent.
+//
+// JP: manifest.json（`npm run manifest` が出力する、鍵を含まない環境情報）から chainId と
+// localDeploy の2つだけを取り出し、process.env にまだ無ければセットするだけの小さな関数。
+// bot.ts に呼ばれる「前座」の中身がこれ。node:fs 以外を import しない設計にしているのは、
+// これ自体が sdk を巻き込まないようにするため（sdk を import した時点でアドレス確定が
+// 走ってしまうので、それより前に実行し終える必要がある）。
 import { existsSync, readFileSync } from "node:fs";
 
 /**

@@ -20,6 +20,17 @@
  * what the market says it is worth -- `marketQuoted: false` means the price is par by assumption,
  * which is exactly the case where there is nothing to trade.
  */
+/**
+ * JP: 「市場価格stable」（issue #27。DAI等）のデペグを取る戦略。**eUSDだけは意図的に除外**
+ * している点が最大の学びどころ — eUSDはLiquityのCDPが常に$1相当の担保と交換に応じてくれる
+ * （＝償還という行使可能な請求権がある）ため、`redemption-arb`という専用のより強い戦略が
+ * 存在する。一方DAIのような普通のstableには償還の保証が無く、「戻ると信じるかどうか」という
+ * 純粋な相場観になる — これがADR 0022と並んで「同じに見えるデペグでも、venueの仕組みによって
+ * 全く別のスキルが要る」ことを示す好例。しきい値2本（`BUY_BPS`=40bps下抜けで買い、
+ * `SELL_BPS`=10bps以内まで戻ったら売り）とサイズだけの単純な戦略だが、**「何もしない」判断も
+ * 含めて毎回 `ctx.log()` で理由を記録する**という規律も参照実装として重要（issue #101:
+ * 理由の無い`null`を351回連続で返すのは「何も見ていない」のと区別がつかない）。
+ */
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
 
 // A roster's `env` is a string map, so a typo silently becomes NaN and the comparison below is

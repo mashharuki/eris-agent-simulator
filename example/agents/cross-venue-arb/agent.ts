@@ -6,6 +6,12 @@
 //
 // env:
 //   CROSS_VENUE_SPREAD_BPS  minimum spread to trade (bps, default 10)
+//
+// JP: clean-arb と発想はほぼ同じ2レグ delta-neutral 裁定（安いvenueで買い、高いvenueで
+// 同量を売る）だが、こちらは実装がやや古く「fee」を明示的に見積もりに入れていない
+// （固定の最小スプレッド `CROSS_VENUE_SPREAD_BPS`＝既定10bpsだけで判定）。clean-arbが
+// `cheap.feeBps + rich.feeBps + SAFETY_MARGIN_BPS` という実測手数料込みの閾値を使うのに対し、
+// こちらはより単純。2つを見比べることで「同じ戦略パターンでも洗練度に差がある」実例になっている。
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { marketViews } from "../lib/markets.js";
 

@@ -28,6 +28,20 @@
  * redeemed once the peg has recovered past par, because at that point the pool pays more than the
  * protocol does.
  */
+/**
+ * JP: peg-arb（DAI等の普通のstableを取る）と同じ「デペグを買う」戦略に見えて、eUSDは
+ * **CDPが強制する償還権という行使可能な請求権**を持つ点が根本的に違う（CLAUDE.mdの
+ * 「eUSD/USDCプールのディスカウントはプロトコルが強制する価格に対する乖離であって価格予想では
+ * ない」の実例）。3段階の取引: ①割安なプールでeUSDを買う ②最もリスクの高いTroveに対して
+ * 1eUSD=1ドル分の担保（ETH）と交換する「償還」を実行 ③受け取ったETHをUSDCに戻す。
+ * この戦略が「公式」ではなく「判断」になる理由が3つ: (a) 償還手数料`baseRate`は**償還するたびに
+ * 上がり**run内ではほぼ下がらないので、**先に動いた者が後続の価格を決める**（先着有利）、
+ * (b) 買うこと自体がプールをpar方向に押し戻すので、全額を1回で使うと自分でディスカウントを
+ * 消してしまう、(c) 償還で得るのはETHでありUSDCに戻すAMM手数料も乗るので、割引幅と
+ * 償還手数料だけを比較する素朴な実装は出口コストを見落として損をする。`IMPACT_CONVEXITY`
+ * は実測較正値（4.2万eUSDの不均衡で120bps、その1/4を取る売買で36%解消 → 動かした割合の
+ * 約1.5倍でディスカウントが動く）。
+ */
 import type {
   AgentAction,
   AgentContext,

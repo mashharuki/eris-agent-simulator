@@ -1,3 +1,26 @@
+/**
+ * JP: このファイルが CLAUDE.md で繰り返し言及される「decide は worker thread で実行される」
+ * アーキテクチャの**親スレッド側**の実装。`StrategyRunner` が worker（strategyWorker.ts）の
+ * 生成・メッセージのやり取り・タイムアウト監視・失敗時のバックオフを一手に引き受ける。
+ *
+ * 読む上でのポイント:
+ * - **`spawn()`**: 新しい worker thread を起動し、`STRATEGY_STARTUP_TIMEOUT_MS`（60秒）で
+ *   モジュール読み込みを監視する。これは decide 1回分のタイムアウト（5秒）とは別物 —
+ *   起動が5秒以内に終わらない戦略は普通にあり得る（tsx のコンパイルに時間がかかる等）ので、
+ *   ここを5秒にすると健全な戦略まで殺してしまう（issue #100 の実際の事故）
+ * - **`decide()`**: 1回分の判断を worker に `postMessage` で依頼し、`DECIDE_TIMEOUT_MS`
+ *   （5秒）でタイマーを立てる。時間内に `result`/`error` が返らなければ `DecideTimeoutError`
+ *   を投げて worker ごと `discard()` する — **「捨てるのは worker であって agent プロセスでは
+ *   ない」**のが重要な区別（コメント41行目 "Only computation is disposable"）。sender・
+ *   ログ・改訂履歴・状態ストアは親プロセス側に残ったまま次のブロックへ進む
+ * - **失敗時のバックオフ**: `discard()` 後に `consecutiveFailures` をインクリメントし、
+ *   `STRATEGY_BACKOFF_AFTER`（3回）を超えたら 2^n ブロック（最大 `STRATEGY_BACKOFF_MAX_BLOCKS`
+ *   =64）だけ worker の再生成をサボる。「毎ブロック throw する壊れた戦略が2秒ごとに
+ *   tsx を起動してCPUを占有する」実害（`lp-provider`、issue #93 F-H）を避けるための措置
+ * - **`setSource()`**: 実行中の判断がある間にLLMが戦略を書き換えても、**その判断は古いバージョン
+ *   のまま完走**し、次の判断から新バージョンを読み込む（「タイムアウトが導入済みバージョンを
+ *   誤って巻き戻さない」ための設計、62行目のコメント参照）
+ */
 import { Worker } from "node:worker_threads";
 import type { AgentContext } from "@eris/sdk/agent.js";
 import type { AgentObservation } from "@eris/sdk/types.js";

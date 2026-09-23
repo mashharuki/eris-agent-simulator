@@ -1,3 +1,9 @@
+// JP: Uniswap単体の価格とfair priceの乖離だけを見る、最小構成の裁定戦略（my-arbと似ているが
+// venue横断はせずUniswap一本のみ、かつ`canFund`のような資金チェックも省いた最も素朴な版）。
+// `obs.protocols.uniswap!`（non-null assertion）を使っているのは、Uniswapが常に有効な前提で
+// 書かれた教材用コードだから — 実戦ではUniswapが無効な run で落ちるので、本番の戦略には
+// 向かない書き方である点に注意。サイズは乖離幅（gap）に比例させ、最小250bps〜最大2500bpsの
+// 範囲でクランプしている。
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 
 export function decide(obs: AgentObservation): AgentAction | null {

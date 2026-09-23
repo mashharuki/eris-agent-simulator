@@ -9,6 +9,16 @@
  * clean-arb only issues a 2-leg trade when "spread > both venue fees + safety margin", otherwise noop.
  * It carries no directional beta and extracts only the cross-venue spread (alpha), and only when it beats cost = a disciplined arbitrageur.
  */
+/**
+ * JP: venue-arbが「1レグだけ送って在庫を作ってから売る」戦略だったのに対し、こちらは
+ * **常に2レグ同時（bundle）でUSDC→安いvenueで買う→高いvenueで売る**という、方向性リスクを
+ * 一切持たない（delta-neutral）裁定に徹する。cross-venue-arb（下）とほぼ同じ発想だが、
+ * clean-arbは「スプレッドが両venueの手数料＋安全マージンを上回る場合だけ」取引する点が違い
+ * （＝cross-venue-arbより保守的）。`multi-arb`からこの2レグロジックだけを取り出し、
+ * 「単発の1レグで乖離を戻しに行く」フォールバックを**あえて削除**したもの — その1レグ
+ * フォールバックがコスト無視・方向性リスク持ちだったため、WBTC投入イベントで
+ * multi-arbが大きく損した主因になっていた、という経緯がコメントにある。
+ */
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { marketViews, type MarketView } from "../lib/markets.js";
 

@@ -48,6 +48,19 @@
  *   ERIS_BASIS_HEDGE_INVENTORY   "1" = also hedge the funded basket, not just what was acquired
  *   ERIS_BASIS_BLOCK_SECONDS     seconds per block, for the funding rate conversion (default 2)
  */
+/**
+ * JP: 他の全裁定戦略が「AMM同士の2レグ」（同一資産クラス内で相殺）なのに対し、この戦略だけは
+ * **AMMの1レグ + GMX perpのヘッジ**という異なる資産クラスを跨いだ構成を取る。狙いは
+ * 「perpはfairでマークされ、採点もfairで評価するので、ヘッジがスコア上のデルタを正確に0に
+ * 相殺してくれる」こと——つまりAMM側の乖離を取りつつ、方向性リスクだけをperpで打ち消す。
+ * **GMXはbundleできない**（keeper実行が必要な非同期処理）ため、2レグはatomicにならず、
+ * AMMレグが着弾してからヘッジが1ラウンド遅れて入る——**その間は無防備（naked）**になるので、
+ * 「新しい機会を探すより先に、既存の無防備なポジションのヘッジを優先する」という順序が
+ * コードの構造そのものに現れている。GMXのfundingはCLAUDE.mdにもある通り「symbol付きの
+ * コストシグナルであってcarry（稼ぎ手段として保持する対象）ではない」（12分のエポックでは
+ * 積み上がる額が3桁小さい）——`fundingCarryBpsPerBlock()`はコストゲートの符号にだけ使われ、
+ * それ自体を収益源として狙う設計にはなっていない。
+ */
 import type { AgentAction, AgentObservation } from "@eris/sdk";
 import { marketViews, type MarketView } from "../lib/markets.js";
 

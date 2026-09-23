@@ -1,5 +1,10 @@
 // ADR 0014: shared ABI (agent side) for the vulnerable pools (SimpleAMM / RiggedAMM) and the factory.
 // The minimal definitions used by poolDiscovery (discovery) and verifyContract (verification).
+// JP: `vuln` レジーム（run途中で悪意あるプールが湧く。ADR 0014）向けの共通ABI定義。
+// `RiggedAMM`（見た目は普通だが実際の swap 挙動が read 系関数の返り値と食い違う罠プール）と
+// `SimpleAMM`（正直なプール）は外から見るABIが同じなので、「読むだけ」では区別できない —
+// 実際に `eth_call` で swap を dry-run して初めて正体が分かる、という前提がここのコメントに
+// 書かれている。poolDiscovery.ts（発見）と verifyContract.ts（検証）の両方から参照される。
 import type { Abi } from "viem";
 
 export const vulnFactoryAbi = [

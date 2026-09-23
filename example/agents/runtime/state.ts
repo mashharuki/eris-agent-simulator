@@ -22,6 +22,26 @@
  *   3. **Atomic writes.** The epoch can be killed at any block. A half-written versions.json that
  *      is then loaded as the starting strategy is the one failure mode worse than losing the file.
  */
+/**
+ * JP: 自己改善型エージェントが「エポックをまたいで」何を覚えていられるか（issue #77）を扱う。
+ * 本番競技は `resetUnit: scenario` で (regime, seed) ごとに world を作り直すため（ADR 0020）、
+ * この仕組みが無いと自己改善は毎エポック version 0（提出時の戦略）からやり直しになり、
+ * 40エポックの競技なら改善の蓄積が40回とも捨てられていた。`--agent-state-root` を指定した
+ * 場合のみ、このエージェント専用ディレクトリに `versions.json`（採用したバージョン一覧・
+ * モデルのメモ）が保存され、次のエポックで読み直される。
+ *
+ * 3つの原則（読み進めるときの軸）:
+ * 1. **失敗は常にソフトに**: state ディレクトリが無い・壊れている・容量超過でも、
+ *    取引自体は絶対に止めない（agent.ts から始めるだけ）
+ * 2. **永続化されたバージョンも信頼しない**: 前回のエポックでコンパイルが通ったコードでも、
+ *    今回また cheatcode 静的検査 + vm コンパイルを通す（検査ルールが厳しくなっている
+ *    かもしれないし、そもそも書いたのはLLM/人の手が入ったコードなので）
+ * 3. **書き込みはアトミック**: エポックはどのブロックでも kill されうるので、`.tmp` に書いてから
+ *    rename する（書きかけの versions.json を次回読み込んでしまうのが最悪のケース）
+ *
+ * 容量上限（既定64MiB、`capBytesFromEnv`）は**エポック単位ではなく累計**。エポックごとに
+ * リセットすると「気長に貯め込む」agentが際限なく増やせてしまうため。
+ */
 import {
   existsSync,
   mkdirSync,
