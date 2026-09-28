@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { expect } from "vitest";
 import type { Abi, Address, Hex } from "viem";
 import { ROOT } from "../src/util.js";
+import { publicClient } from "../src/clients.js";
 import { getRegistry } from "../src/registry.js";
 
 export const ZERO = "0x0000000000000000000000000000000000000000" as Address;
@@ -127,8 +128,14 @@ export function sameAddr(a?: string, b?: string): boolean {
 export const isAddress = (v: unknown): v is Address =>
   typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v);
 
-/** Deadline one hour from now (seconds) */
-export const deadline = (): bigint =>
-  BigInt(Math.floor(Date.now() / 1000) + 3600);
+/**
+ * Swap deadline one hour past the chain's latest block. Chain time, not the wall clock: the Liquity
+ * deploy warps anvil ~14 days ahead (bootstrap period), so `Date.now()` + 1h is already expired
+ * ("Transaction too old" / BAL#508) after a full deploy.
+ */
+export async function getDeadline(): Promise<bigint> {
+  const block = await publicClient.getBlock({ blockTag: "latest" });
+  return block.timestamp + 3600n;
+}
 
 export type { Abi, Address, Hex };

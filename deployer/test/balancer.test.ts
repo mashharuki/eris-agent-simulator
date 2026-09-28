@@ -15,7 +15,7 @@ import {
   tokenAddr,
   expectApprox,
   expectRevert,
-  deadline,
+  getDeadline,
 } from "./support.js";
 
 const dep = accounts.deployer;
@@ -85,7 +85,7 @@ describe.skipIf(!b)("Balancer V2", () => {
         },
         funds(),
         0n,
-        deadline(),
+        await getDeadline(),
       ],
       account: dep,
       chain: anvilChain,
@@ -114,7 +114,7 @@ describe.skipIf(!b)("Balancer V2", () => {
           },
           funds(),
           1_000_000n * 10n ** 6n, // unreachable minOut
-          deadline(),
+          await getDeadline(),
         ],
         account: dep,
       }),
