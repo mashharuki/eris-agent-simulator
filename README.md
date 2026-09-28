@@ -205,9 +205,19 @@ This is an **MVP / Proof of Concept** for research and experimentation, not inte
   <sub>Built by <a href="https://erisnet.xyz/">Nyx Foundation</a> · <em>Let your contracts face the swarm.</em></sub>
 </p>
 
+--- 
+
+## 接続情報
+
+- RPC エンドポイント / RPC endpoint: https://ascon-rpc.nyx.foundation/
+- chainId: 31337 (0x7a69)
+- ブロック生成 / Block time: 2 秒ごと / every 2 seconds
+
 ## 参考文献
 - [Deepwiki eris-agent-simulator](https://github.com/NyxFoundation/eris-agent-simulator)
 - [Deepwiki 概要解説](https://deepwiki.com/search/_0f750a90-72c7-4eed-be0e-72822fa533fa)
 - [ASCON公式サイト](https://ascon.dev/)
 - [GitHub jev-trader](https://github.com/jarrodwatts/jev-trader)
 - [Jev (TypeSafe System One) — Finance & Trading Projects](https://gist.github.com/drillan/6916b16e8ea31a8ec36c8f59d6483150)
+- [ブロックエクスプローラー](https://ascon-explorer.nyx.foundation/)
+- [ダッシュボード](https://ascon-dash.nyx.foundation/)

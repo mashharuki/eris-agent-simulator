@@ -52,3 +52,5 @@ bench/results/
 config/_bench.yaml
 cf.env
 cf-service-token.env
+
+scripts/test.sh
