@@ -65,6 +65,10 @@ import {
 } from "@eris/sdk/actionSchema.js";
 import { accountAddress, makeClients, sendAndMine } from "@eris/sdk/chain.js";
 import { loadConfig } from "@eris/sdk/config.js";
+import {
+  describeRpcHeaders,
+  getRpcHeadersFromEnv,
+} from "@eris/sdk/rpcHeaders.js";
 import { GMX_MARKETS } from "@eris/sdk/constants.js";
 import { baseTokens, gmxMarketAddresses } from "@eris/sdk/markets.js";
 import type { FlowWallet, SimContext } from "@eris/sdk/protocols/types.js";
@@ -683,7 +687,9 @@ async function main(): Promise<void> {
     onBlockNumber: (bn) => void onBlock(Number(bn)),
   });
 
-  logMempool({ event: "runtime_start", mode, address, agentDir, rpcUrl });
+  // Header names only (the values are credentials): confirms X-ASCON-Key / CF-Access-* were picked up.
+  const rpcHeaders = describeRpcHeaders(getRpcHeadersFromEnv());
+  logMempool({ event: "runtime_start", mode, address, agentDir, rpcUrl, rpcHeaders });
 
   // ---- drive per type ----
   if (mode === "run") {

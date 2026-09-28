@@ -13,6 +13,7 @@
   "scripts": {
     "anvil": "tsx core/src/cli/anvil.ts",
     "sim:realtime": "tsx core/src/cli/sim-realtime.ts",
+    "agent:ascon": "node --env-file=.env.ascon --import tsx example/agents/runtime/bot.ts",
     "backtest": "tsx core/src/cli/backtest.ts",
     "competition": "tsx core/src/cli/competition.ts",
     "inference-proxy": "tsx core/src/cli/inferenceProxy.ts",

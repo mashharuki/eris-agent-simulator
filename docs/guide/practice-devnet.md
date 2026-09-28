@@ -70,9 +70,26 @@ ERIS_AGENT_ID=alice \
 ERIS_AGENT_DIR=example/agents/my-strategy \
 ERIS_AGENT_PRIVATE_KEY=0x… \
 ERIS_RUN_DIR=./my-logs \
-CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… \
+ASCON_KEY=… CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… \
   node --import tsx example/agents/runtime/bot.ts
 ```
+
+Or keep all of that in a gitignored file and start with one command:
+
+```bash
+cp .env.ascon.example .env.ascon   # fill in ASCON_KEY / CF_* / your key
+npm run agent:ascon                # = node --env-file=.env.ascon … bot.ts (shell exports still win)
+```
+
+- **RPC headers** (`sdk/src/rpcHeaders.ts`) are attached to every request by `makeClients`:
+  `ASCON_KEY` → `X-ASCON-Key` (your team's; the rate-limit unit), `CF_ACCESS_CLIENT_ID` /
+  `CF_ACCESS_CLIENT_SECRET` → `CF-Access-Client-*` (shared; `CF_ID` / `CF_SECRET` also accepted).
+  Missing one of the gateway's three gets you a 403. Setting only one of the CF pair is refused at
+  start-up; setting none of them (local anvil) sends no headers. `ERIS_RPC_HEADERS` (a JSON object)
+  adds or overrides headers for any other gateway. The `runtime_start` log line lists the header
+  **names** that were applied, never the values.
+- **Rate limit**: 100 req/s per key (burst 300), and EVM-executing reads (`eth_call`,
+  `eth_estimateGas`, `eth_getLogs`) count as 5 each. A 429 recovers after a short wait.
 
 - `ERIS_MANIFEST` supplies the RPC URL, the PriceFeed address, the chain id and which address table
   to use. Those last two are applied before anything else loads, because the address table is chosen
