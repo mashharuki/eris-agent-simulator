@@ -40,6 +40,25 @@ fi
 echo "  yarn install (this takes a while)"
 (cd "$GMX_DIR" && yarn install)
 
+# Linux ARM (Raspberry Pi / Graviton): hardhat can only download linux-amd64 solc and falls back to
+# solcjs (wasm), which is too slow / runs out of memory on GMX. The patched hardhat.config.ts picks up
+# a native build from svm's install dir; have forge put one there (compiling a one-line contract with
+# --use is how forge installs a solc version).
+GMX_SOLC_VERSION="0.8.29"
+if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "aarch64" ]; then
+  if [ -x "$HOME/.local/share/svm/$GMX_SOLC_VERSION/solc-$GMX_SOLC_VERSION" ] ||
+     [ -x "$HOME/.svm/$GMX_SOLC_VERSION/solc-$GMX_SOLC_VERSION" ]; then
+    echo "  native solc $GMX_SOLC_VERSION (linux-arm64) already installed"
+  else
+    echo "  install native solc $GMX_SOLC_VERSION for linux-arm64 via forge"
+    SOLC_TMP="$(mktemp -d)"
+    mkdir -p "$SOLC_TMP/src"
+    printf 'pragma solidity %s;\ncontract Probe {}\n' "$GMX_SOLC_VERSION" > "$SOLC_TMP/src/Probe.sol"
+    (cd "$SOLC_TMP" && forge build --use "$GMX_SOLC_VERSION" --root "$SOLC_TMP" >/dev/null)
+    rm -rf "$SOLC_TMP"
+  fi
+fi
+
 echo "==> Setting up Aave (hardhat subproject)"
 (cd vendor/aave && npm install)
 
