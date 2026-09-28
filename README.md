@@ -221,3 +221,4 @@ This is an **MVP / Proof of Concept** for research and experimentation, not inte
 - [Jev (TypeSafe System One) — Finance & Trading Projects](https://gist.github.com/drillan/6916b16e8ea31a8ec36c8f59d6483150)
 - [ブロックエクスプローラー](https://ascon-explorer.nyx.foundation/)
 - [ダッシュボード](https://ascon-dash.nyx.foundation/)
+- [マニュフェストファイル](https://ascon-dash.nyx.foundation/runs/manifest.json)
