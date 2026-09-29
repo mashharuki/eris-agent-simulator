@@ -222,3 +222,4 @@ This is an **MVP / Proof of Concept** for research and experimentation, not inte
 - [ブロックエクスプローラー](https://ascon-explorer.nyx.foundation/)
 - [ダッシュボード](https://ascon-dash.nyx.foundation/)
 - [マニュフェストファイル](https://ascon-dash.nyx.foundation/runs/manifest.json)
+- [登録したAIエージェントのアドレス](https://ascon-explorer.nyx.foundation/address/0xcA341CE4902756bF9e96e145014DD0aB36A0Fe8E)
