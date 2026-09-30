@@ -10,7 +10,7 @@ import {
   tokenAddr,
   expectApprox,
   expectRevert,
-  deadline,
+  getDeadline,
 } from "./support.js";
 
 const dep = accounts.deployer;
@@ -67,7 +67,7 @@ describe.skipIf(!u)("Uniswap V3", () => {
           tokenOut: usdc(),
           fee: FEE,
           recipient: dep.address,
-          deadline: deadline(),
+          deadline: await getDeadline(),
           amountIn: ONE_WETH,
           amountOutMinimum: 0n,
           sqrtPriceLimitX96: 0n,
@@ -95,7 +95,7 @@ describe.skipIf(!u)("Uniswap V3", () => {
             tokenOut: usdc(),
             fee: FEE,
             recipient: dep.address,
-            deadline: deadline(),
+            deadline: await getDeadline(),
             amountIn: ONE_WETH,
             amountOutMinimum: quotedOut * 2n, // unreachable
             sqrtPriceLimitX96: 0n,
@@ -122,7 +122,7 @@ describe.skipIf(!u)("Uniswap V3", () => {
           tokenOut: weth(),
           fee: FEE,
           recipient: dep.address,
-          deadline: deadline(),
+          deadline: await getDeadline(),
           amountIn,
           amountOutMinimum: 0n,
           sqrtPriceLimitX96: 0n,
@@ -168,7 +168,7 @@ describe.skipIf(!u)("Uniswap V3", () => {
           liquidity: liquidity / 2n,
           amount0Min: 0n,
           amount1Min: 0n,
-          deadline: deadline(),
+          deadline: await getDeadline(),
         },
       ],
       account: dep,
