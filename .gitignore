@@ -56,3 +56,4 @@ cf-service-token.env
 scripts/test.sh
 # ASCON practice chain credentials (X-ASCON-Key / CF-Access / wallet key)
 .env.ascon
+.env.ascon.example
