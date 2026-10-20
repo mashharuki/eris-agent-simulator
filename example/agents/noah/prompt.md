@@ -16,9 +16,18 @@ actual size** on the venue's own quoting contract, and take it only if the avera
 reference (fair) price by a margin. Sizes come from a ladder of fractions of the available room;
 the most profitable rung that still clears the margin wins.
 
-- **Open** trades move inventory away from the starting basket and need `PARAMS.openEdgeBps`.
-- **Restore** trades move it back toward the basket and need only `PARAMS.restoreEdgeBps`.
-- In the last `PARAMS.closeOutBlocks` blocks of the epoch only restore trades are allowed.
+- **Open** trades move inventory away from the starting basket and need `PARAMS.openEdgeBps`. How
+  far they may move it also scales with the edge itself (`devFracForEdge`): a barely-qualifying
+  edge only unlocks a small slice of `PARAMS.maxDevFrac`'s room, the full room is reserved for an
+  edge at or above `PARAMS.fullDevEdgeBps`. A thin edge can no longer drift inventory out as far as
+  a crash-sized one could.
+- **Restore** trades move it back toward the basket and need only `PARAMS.restoreEdgeBps` — except
+  in the close-out window (below), where the floor is looser on purpose.
+- In the last `PARAMS.closeOutBlocks` blocks of the epoch only restore trades are allowed, and the
+  restore tier's own threshold/profit floor are replaced by `PARAMS.closeOutRestoreEdgeBps` /
+  `PARAMS.closeOutMinProfitUsdc` (both negative): restoring is worth a small loss there rather than
+  leftover deviation marked at the scoring boundary. Outside that window the ordinary
+  `restoreEdgeBps` / `minProfitUsdc` floors still apply unchanged.
 - Bids: the minimum that beats the last block's top competitor for ordinary edges, the full
   ceiling (`PARAMS.ceilFraction` of the profit) at or above `PARAMS.bigProfitUsdc`, never past
   `PARAMS.gasBudgetEth`.
@@ -48,6 +57,15 @@ side's — not a second, independently-tuned window.
   what a trade clears at. Never replace the at-size quote (`quoteOut`) with an observation price.
 - The money is in the event regimes: a crash or spike moves fair 15–22% in one block while pools
   still quote the old price. That is what the open margin and the big-edge bid are for.
+- **A thin edge should not reach as far from the basket as a crash-sized one.** Measured in calm:
+  a ~41bps edge could drift inventory to the full `maxDevFrac` deviation bound same as a 1000+bps
+  one, and leftover deviation at the close cost ±$1,000 of noise between frozen identical twins.
+  `devFracForEdge` scales the open room by the probe edge for exactly this reason — do not widen it
+  back to a flat `maxDevFrac` for every qualifying edge.
+- **Leftover deviation into the scoring boundary is worse than a small loss closing it.** That is
+  why the close-out window's restore floor (`closeOutRestoreEdgeBps` / `closeOutMinProfitUsdc`) is
+  allowed to go negative — removing that and falling back to the ordinary (non-negative)
+  `restoreEdgeBps` there would silently reopen the same leftover-deviation noise.
 - **The Liquity branch only has work on depeg-shaped days** (eUSD trading off par). On every other
   day `obs.protocols.liquity` is either absent or shows `discountBps` near 0, and holding at idle
   is correct — do not loosen `LIQUITY_PARAMS` just because the branch has been quiet.
@@ -88,6 +106,9 @@ side's — not a second, independently-tuned window.
 | `liquity redeem`/`sell` never follows a `liquity buy` within a block or two | recent decisions | a bug (the buy's eUSD should trigger redeem/sell next block) — fix the guard, not the thresholds |
 | `liquity buy` fires but later settles worse than fair | settled trade value | raise `LIQUITY_PARAMS.exitCostBps` (the AMM leg that turns redeemed ETH back to USDC is costing more than assumed) |
 | `discountBps` wide but no `liquity buy` **only in the last `closeOutBlocks` blocks**, `closing out` hold reason in signals | recent decisions | **none** — correct: a buy this late can't round-trip back to cash before the scoring boundary, and leftover eUSD is marked at realizable value, not par |
+| `dev_<BASE>` reaches the full `maxDevFrac` bound on a thin edge (`maxEdgeBps` near `openEdgeBps`) | signals, `edgeBps` on the settled trade | a bug in `devFracForEdge` or its wiring, not a thresholds fix — a thin edge should only unlock a small slice of the bound |
+| restore trades settle at a small loss **only in the last `closeOutBlocks` blocks** | settled trade value vs `closeOutRestoreEdgeBps` | **none** — correct: forcing convergence there costs less than the deviation it would otherwise leave marked at the boundary |
+| `dev_<BASE>` still nonzero at the very last block despite being inside the close-out window | signals on the final rounds | raise `closeOutBlocks` a little, or loosen `closeOutRestoreEdgeBps` further negative (floor around −50) |
 
 ## Constraints
 
@@ -99,9 +120,11 @@ side's — not a second, independently-tuned window.
   so it would have to carry its own copies including contract addresses. **That is a large, risky
   rewrite — prefer `executorTs: null`, and when a change is justified keep it to the `PARAMS` /
   `LIQUITY_PARAMS` values.**
-- Keep: the at-size quote, the open/restore split, the close-out window (on both the AMM side and
-  fresh Liquity buys), the gas budget, the Liquity finish-before-fresh-trade ordering, and a
-  `ctx.log({ reason, signals })` on every branch.
+- Keep: the at-size quote, the open/restore split, the edge-scaled deviation room
+  (`devFracForEdge`), the close-out window (on both the AMM side and fresh Liquity buys) including
+  its negative restore floor (`closeOutRestoreEdgeBps` / `closeOutMinProfitUsdc`), the gas budget,
+  the Liquity finish-before-fresh-trade ordering, and a `ctx.log({ reason, signals })` on every
+  branch.
 - This run's action vocabulary, by venue (`sdk/src/action.ts`'s `ACTION_TYPES_BY_PROTOCOL` is the
   single source — do not invent a type not listed here): uniswap/balancer/curve use `swap` /
   `balancerSwap` / `curveSwap` (already wrapped by `legAction` — a rewrite that touches the AMM side
