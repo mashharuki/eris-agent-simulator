@@ -2,7 +2,7 @@
 kind: improve
 name: noah
 description: Fair-anchored executable arbitrage around the starting basket, plus eUSD redemption-arb on the Liquity venue — trades only when the quote at the actual size beats the reference price, bids hard on crash/spike gaps, revised in-run.
-model: claude-cli:haiku
+model: claude-sonnet-4-5
 reviseEveryBlocks: 60
 ---
 
