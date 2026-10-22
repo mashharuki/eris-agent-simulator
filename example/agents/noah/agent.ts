@@ -16,19 +16,43 @@
  * mid-price/z-score version lost 170-430 USDC of alpha against a do-nothing baseline). In a crash or
  * spike (§3.2 regimes 6/8: a 15-22% fair gap while the pools still quote the old price) the same rule
  * sells into or buys out of the stale pools at size, bids hard for inclusion, and buys the basket
- * back once pools trade through fair. In the last CLOSE_OUT_BLOCKS of an epoch only restoring trades
- * are allowed, so the epoch ends near the basket.
+ * back once pools trade through fair. How far the open side may push inventory also scales with the
+ * probe edge (devFracForEdge): a thin, barely-qualifying edge only unlocks a small slice of
+ * maxDevFrac's room, the full room is reserved for a crash/spike-sized edge (measured: a ~41bps edge
+ * in calm#101 used to reach the same full 8 WETH bound a crash edge would). In the last
+ * CLOSE_OUT_BLOCKS of an epoch only restoring trades are allowed, and the restore tier's own
+ * threshold/profit floor loosen into negative territory (closeOutRestoreEdgeBps /
+ * closeOutMinProfitUsdc) so the epoch still ends near the basket rather than leaving deviation
+ * that the scoring boundary would otherwise mark (measured: +-$1k of noise between frozen identical
+ * twins in calm, traced to inventory that never made it back).
  *
- * Every branch logs a reason and signals (issue #101). Out of scope here: GMX, Aave, LST, Liquity
- * and the regime 7/11 pools -- quote.ts only reads uniswap/balancer/curve markets.
+ * Every branch logs a reason and signals (issue #101). Out of scope here: GMX, Aave, LST and the
+ * regime 7/11 pools -- quote.ts only reads uniswap/balancer/curve markets. Liquity (eUSD) is a
+ * second, independent candidate source (liquity.ts, ported from example/agents/redemption-arb):
+ * finishing a redemption already in flight (redeem/sell/wrap/unwind) always takes priority over a
+ * fresh trade, since holding eUSD or ETH across blocks while chasing an AMM edge is a price bet
+ * nobody chose to take; a fresh eUSD buy is ranked against the AMM candidates on the same
+ * profitUsdc basis and the better of the two is taken (never both in the same block). A fresh buy
+ * is additionally gated off inside CLOSE_OUT_BLOCKS (same window as the AMM restore-only rule):
+ * eUSD/DAI score at realizable (sell-it-all-now) value, not par, so a buy too late to redeem/sell
+ * back to cash before the scoring boundary pays a markdown for nothing -- finishing one already in
+ * flight is unaffected, only a fresh one is held back.
  *
  * JP: fair 基準・実サイズ見積もりの裁定。評価は fair 建てなので「実サイズの約定価格が fair を
  * 上回る（下回る）」分はその場で P に確定する。初期バスケットが中立なので、バスケットから離れる取引は
  * 高い閾値（OPEN）、戻す取引は低い閾値（RESTORE）。calm では何もせず、crash/spike では古い価格の
- * プールに実サイズで当て、強く入札する。エポック終盤は戻す取引だけ。
+ * プールに実サイズで当て、強く入札する。バスケットから離れられる量もエッジの大きさに応じてスケールする
+ * （薄いエッジではmaxDevFracの一部しか使えず、crash/spike級のエッジで初めて全量が使える）。エポック終盤は
+ * 戻す取引だけで、かつ戻すための閾値・利益フロアが負の値まで緩む（戻しきれない在庫を採点境界で評価される
+ * より、多少の損を払って戻す方が得という実測に基づく）。Liquity(eUSD)は独立した
+ * もう一つの候補源（liquity.ts）: 前回までの償還の後始末（redeem/sell/wrap/unwind）は常に最優先、
+ * 新規のeUSD購入はAMM候補とprofitUsdcで比較して良い方だけを採る。ただし新規購入はAMM側と同じ終盤窓で
+ * 止める（eUSD/DAIは一括売却額で評価されるため、現金化し切れない買いは評価額を損するだけ）。
  */
 import type { AgentAction, AgentContext, AgentObservation } from "@eris/sdk";
+import { TOKENS } from "@eris/sdk/constants.js";
 import { marketViews, type AgentVenue, type MarketView } from "../lib/markets.js";
+import { decideLiquity, LIQUITY_PARAMS, type LiquityDecision } from "./liquity.js";
 import { quoteOut, type Side, type Venue } from "./quote.js";
 
 // ---- tunables (one place, so a revision can change them as literals) ----
@@ -36,7 +60,11 @@ const PARAMS = {
   openEdgeBps: Number(process.env.NOAH_OPEN_EDGE_BPS ?? "40"), // min avg-fill edge vs fair, away from basket
   restoreEdgeBps: Number(process.env.NOAH_RESTORE_EDGE_BPS ?? "0"), // min avg-fill edge vs fair, back toward basket
   minProfitUsdc: Number(process.env.NOAH_MIN_PROFIT_USDC ?? "3"), // below this the gas and the stale fair eat it
-  maxDevFrac: 1.0, // inventory may range over baseline x [1 - maxDevFrac, 1 + maxDevFrac]
+  maxDevFrac: 1.0, // inventory may range over baseline x [1 - maxDevFrac, 1 + maxDevFrac]...
+  fullDevEdgeBps: 300, // ...but only at this probe edge or above; scales linearly down from here,
+  // so a barely-qualifying edge (near openEdgeBps) only unlocks a small slice of that room and the
+  // full room is reserved for crash/spike-sized edges. Measured problem this fixes: calm#101 let a
+  // ~41bps edge drift inventory out to the full 8 WETH deviation bound, same as a crash-sized one.
   ladder: [0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0], // fractions of the available room, quoted in order
   maxLegs: 4,
   slipFracOfEdge: 0.5, // slippage bound = this share of the quoted edge...
@@ -46,13 +74,21 @@ const PARAMS = {
   bigProfitUsdc: 100, // at or above this, bid the full ceiling: crash/spike edges go to the highest bid
   gasBudgetEth: 0.5, // of the 1 ETH gas stipend (rules §4.2); ETH is marked into V too
   closeOutBlocks: 30,
+  // Inside the close-out window, restoring is worth a small loss rather than leftover deviation
+  // into the scoring boundary (measured: ±$1k of noise between frozen identical twins in calm,
+  // traced to inventory that never made it back to the basket). Outside the window, restoreEdgeBps
+  // / minProfitUsdc above still apply unchanged -- these two only replace them once closing out.
+  closeOutRestoreEdgeBps: -15, // may be negative: allowed to pay up to this against fair to restore
+  closeOutMinProfitUsdc: -25, // may be negative: the floor profitUsdc may fall to while restoring
 };
 
 const GAS_PER_LEG = 200_000n;
 const ONE_GWEI = 1_000_000_000n;
 
+// Only the close-out overrides above may be negative -- everything else negative is a config bug.
+const ALLOW_NEGATIVE_PARAMS = new Set<string>(["closeOutRestoreEdgeBps", "closeOutMinProfitUsdc"]);
 for (const [k, v] of Object.entries(PARAMS)) {
-  if (typeof v === "number" && (!Number.isFinite(v) || v < 0)) {
+  if (typeof v === "number" && (!Number.isFinite(v) || (v < 0 && !ALLOW_NEGATIVE_PARAMS.has(k)))) {
     process.stderr.write(`noah: invalid PARAMS.${k}: ${v}\n`);
     process.exit(1);
   }
@@ -63,6 +99,18 @@ for (const [k, v] of Object.entries(PARAMS)) {
 // the agent treat its current inventory as neutral, which is the conservative failure.
 const baselineByBase = new Map<string, bigint>();
 let gasSpentWei = 0n;
+
+// Liquity side's own baselines. redemption-arb can fix these once at the start of the run, because
+// it never touches WETH/ETH any other way. noah cannot: its own AMM side buys and sells WETH on
+// every open/restore trade, so a baseline fixed once would make ordinary AMM inventory look like
+// redemption proceeds forever after -- exactly what happened on the first local test (the Liquity
+// branch's `unwind` fired every block from early on, each time undoing whatever the AMM side had
+// just bought). The fix: track the live balance by default (so an AMM-driven move is never "above
+// baseline"), and only freeze it for the one block where a redemption is in flight, so that block's
+// increase -- and only that one -- reads as proceeds.
+let liquityBaselineEthWei: bigint | null = null;
+let liquityBaselineWethWei: bigint | null = null;
+let awaitingRedeemProceeds = false;
 
 function baselineOf(base: string, balance: bigint): bigint {
   if (!baselineByBase.has(base)) baselineByBase.set(base, balance);
@@ -96,18 +144,28 @@ function edgeBpsOf(side: Side, fillPx: number, fair: number): number {
   return (side === "sell" ? fillPx / fair - 1 : 1 - fillPx / fair) * 10_000;
 }
 
+// How far PARAMS.maxDevFrac's room is actually open, scaled by the probe edge that would be moving
+// into it: a bare-minimum edge (near openEdgeBps) only unlocks a small slice, the full band is
+// reserved for a crash/spike-sized edge. Based on the cheap probe price, same as the threshold
+// gate below it feeds -- the ladder inside that room still re-checks the real at-size edge.
+function devFracForEdge(probeEdgeBps: number): number {
+  const frac = probeEdgeBps / PARAMS.fullDevEdgeBps;
+  return Math.max(0, Math.min(PARAMS.maxDevFrac, frac * PARAMS.maxDevFrac));
+}
+
 // How much may move in this direction, in the INPUT token's raw units (base for a sell, USDC for a
-// buy): `restoreRoom` only back to the basket, `openRoom` out to the deviation bound (or, while
-// closing out, no further than the basket either).
+// buy): `restoreRoom` only back to the basket, `openRoom` out to `devFrac`'s share of the deviation
+// bound (or, while closing out, no further than the basket either).
 function roomFor(
   view: MarketView,
   side: Side,
   usdcBal: bigint,
   isClosingOut: boolean,
+  devFrac: number,
 ): { restoreRoom: bigint; openRoom: bigint } {
   const inv = BigInt(view.baseBalanceWei || "0");
   const baseline = baselineOf(view.base, inv);
-  const dev = toRaw(toFloat(baseline, view.baseDecimals) * PARAMS.maxDevFrac, view.baseDecimals);
+  const dev = toRaw(toFloat(baseline, view.baseDecimals) * devFrac, view.baseDecimals);
   if (side === "sell") {
     const restore = inv > baseline ? inv - baseline : 0n;
     const floor = baseline > dev ? baseline - dev : 0n;
@@ -164,22 +222,28 @@ async function candidatesFor(
   problems: string[],
 ): Promise<Candidate[]> {
   const out: Candidate[] = [];
+  // Close-out replaces the restore tier's own floors with a convergence-forcing pair (may run at a
+  // small loss); the open tier's floor is unchanged (closing out already caps its room to the
+  // restore amount in roomFor, so a real "open" trade cannot happen there regardless).
+  const restoreThresholdBps = isClosingOut ? PARAMS.closeOutRestoreEdgeBps : PARAMS.restoreEdgeBps;
+  const restoreMinProfitUsdc = isClosingOut ? PARAMS.closeOutMinProfitUsdc : PARAMS.minProfitUsdc;
   for (const side of ["sell", "buy"] as const) {
-    const r = roomFor(view, side, usdcBal, isClosingOut);
-    // Try the open margin first (it allows the larger room), then fall back to restoring only.
-    const tiers = [
-      { room: r.openRoom, thresholdBps: PARAMS.openEdgeBps, isRestore: false },
-      { room: r.restoreRoom, thresholdBps: PARAMS.restoreEdgeBps, isRestore: true },
-    ];
     // Venues are quoted in parallel: in a crash every venue is a candidate, and a sequential ladder
-    // over all of them is what would run into the 5 s decide limit (rules §2.3).
+    // over all of them is what would run into the 5 s decide limit (rules §2.3). devFrac is
+    // per-venue (each has its own probe edge), so roomFor moves inside the same loop.
     const perVenue = await Promise.all(
       view.venues.map(async (venue): Promise<Candidate | null> => {
         const probeEdge = edgeBpsOf(side, probePx(venue, side), view.fair);
+        const r = roomFor(view, side, usdcBal, isClosingOut, devFracForEdge(probeEdge));
+        // Try the open margin first (it allows the larger room), then fall back to restoring only.
+        const tiers = [
+          { room: r.openRoom, thresholdBps: PARAMS.openEdgeBps, minProfitUsdc: PARAMS.minProfitUsdc, isRestore: false },
+          { room: r.restoreRoom, thresholdBps: restoreThresholdBps, minProfitUsdc: restoreMinProfitUsdc, isRestore: true },
+        ];
         for (const tier of tiers) {
           if (tier.room <= 0n || probeEdge < tier.thresholdBps) continue;
           const rung = await bestRung(ctx, view, venue, side, tier.room, tier.thresholdBps, problems);
-          if (!rung || rung.profitUsdc < PARAMS.minProfitUsdc) continue;
+          if (!rung || rung.profitUsdc < tier.minProfitUsdc) continue;
           return { base: view.base, venue, side, isRestore: tier.isRestore, ...rung };
         }
         return null;
@@ -220,6 +284,52 @@ function slipBps(edgeBps: number): number {
   );
 }
 
+// The non-"buy" kinds are a 1:1 port of redemption-arb's own action mapping (same action types,
+// same fields). "buy" is folded in too so callers have one place to build a Liquity action from a
+// decision; "hold" has no action (callers check for it before reaching here).
+function liquityAction(decision: LiquityDecision, fee: string): Record<string, unknown> | null {
+  switch (decision.kind) {
+    case "buy":
+      return {
+        type: "liquitySwapEusd",
+        tokenIn: "USDC",
+        amountIn: decision.usdcIn.toString(),
+        slippageBps: LIQUITY_PARAMS.slippageBps,
+        maxPriorityFeePerGasWei: fee,
+      };
+    case "sell":
+      return {
+        type: "liquitySwapEusd",
+        tokenIn: "EUSD",
+        amountIn: decision.eusdIn.toString(),
+        slippageBps: LIQUITY_PARAMS.slippageBps,
+        maxPriorityFeePerGasWei: fee,
+      };
+    case "redeem":
+      return {
+        type: "liquityRedeem",
+        amountEusdWei: decision.eusdIn.toString(),
+        maxPriorityFeePerGasWei: fee,
+      };
+    case "wrap":
+      return {
+        type: "rawTx",
+        tx: { to: TOKENS.WETH.address, data: "0xd0e30db0", value: decision.ethWei.toString() },
+        maxPriorityFeePerGasWei: fee,
+      };
+    case "unwind":
+      return {
+        type: "swap",
+        tokenIn: "WETH",
+        amountIn: decision.wethWei.toString(),
+        slippageBps: LIQUITY_PARAMS.slippageBps,
+        maxPriorityFeePerGasWei: fee,
+      };
+    default:
+      return null;
+  }
+}
+
 function legAction(c: Candidate): Record<string, unknown> {
   const leg: Record<string, unknown> = {
     type: c.venue.swapType,
@@ -245,13 +355,57 @@ export async function decide(
   };
 
   if (!(obs.fairPriceUsdcPerWeth > 0)) return noop("invalid fair price");
-  const views = marketViews(obs);
-  if (views.length === 0) return noop("no venue quoting any base");
-
   const usdcBal = BigInt(obs.balances.usdcUnits || "0");
+  const fee = obs.limits.defaultPriorityFeePerGasWei;
+
+  // Computed before the Liquity branch (not just the AMM one below) because a fresh eUSD buy needs
+  // it too: it takes a few blocks to round-trip back to cash, and eUSD held into the scoring
+  // boundary is marked at its realizable value, not par (see liquity.ts's `closingOut` comment).
   const isClosingOut =
     typeof obs.blocksRemaining === "number" && obs.blocksRemaining <= PARAMS.closeOutBlocks;
   signals.closingOut = isClosingOut ? 1 : 0;
+
+  // Liquity: finish any position already open before anything else -- holding eUSD or ETH across
+  // blocks while chasing an AMM edge is a price bet nobody chose to take (same ordering as
+  // redemption-arb's own decideRedemption). A fresh buy is held back to compare against the AMM
+  // candidates below instead of taken unconditionally.
+  type LiquityBuy = Extract<LiquityDecision, { kind: "buy" }>;
+  let liquityBuy: LiquityBuy | null = null;
+  const liquity = obs.protocols.liquity;
+  if (liquity) {
+    const ethWei = BigInt(obs.balances.ethWei || "0");
+    const liqWethWei = BigInt(obs.balances.wethWei || "0");
+    // Track the live balance unless a redemption is in flight (see the comment on the state
+    // above) -- otherwise re-baseline every call, so only that one block's increase can ever look
+    // like proceeds.
+    if (!awaitingRedeemProceeds || liquityBaselineEthWei === null) liquityBaselineEthWei = ethWei;
+    if (!awaitingRedeemProceeds || liquityBaselineWethWei === null)
+      liquityBaselineWethWei = liqWethWei;
+    const ld = decideLiquity({
+      liquity,
+      usdcUnits: usdcBal,
+      wethWei: liqWethWei,
+      ethWei,
+      ethBaselineWei: liquityBaselineEthWei,
+      wethBaselineWei: liquityBaselineWethWei,
+      canSellEth: obs.enabledProtocols.includes("uniswap"),
+      closingOut: isClosingOut,
+    });
+    signals.eusd = Number(liquity.eusdBalanceWei) / 1e18;
+    signals.discountBps = liquity.discountBps;
+    if (ld.kind === "buy") {
+      liquityBuy = ld;
+    } else if (ld.kind !== "hold") {
+      // unwind/wrap close out what redeem opened -- resume tracking the live balance from here.
+      awaitingRedeemProceeds = ld.kind === "redeem";
+      const action = liquityAction(ld, fee) ?? { type: "noop", reason: `liquity ${ld.kind}` };
+      ctx.log({ round, action, signals, reason: `liquity ${ld.kind}` });
+      return action;
+    }
+  }
+
+  const views = marketViews(obs);
+  if (views.length === 0 && !liquityBuy) return noop("no venue quoting any base");
 
   const candidates: Candidate[] = [];
   for (const view of views) {
@@ -261,9 +415,25 @@ export async function decide(
       toFloat(inv, view.baseDecimals) - toFloat(baseline, view.baseDecimals);
     candidates.push(...(await candidatesFor(ctx, view, usdcBal, isClosingOut, problems)));
   }
+  candidates.sort((a, b) => b.profitUsdc - a.profitUsdc);
+
+  // The better of the two venues wins outright -- a Liquity buy never shares a block with an AMM
+  // leg (neither strategy's sizing accounts for the other spending the same USDC balance).
+  if (liquityBuy && liquityBuy.profitUsdc >= (candidates[0]?.profitUsdc ?? -Infinity)) {
+    const action = liquityAction(liquityBuy, fee) as Record<string, unknown>;
+    signals.profitUsdc = liquityBuy.profitUsdc;
+    signals.maxEdgeBps = liquityBuy.edgeBps;
+    ctx.log({
+      round,
+      action,
+      signals,
+      reason: `liquity buy ${liquityBuy.edgeBps.toFixed(0)}bps +${liquityBuy.profitUsdc.toFixed(2)}`,
+    });
+    return action;
+  }
+
   if (candidates.length === 0) return noop("no fill clears fair by the margin at any size");
 
-  candidates.sort((a, b) => b.profitUsdc - a.profitUsdc);
   // One leg per (base, venue): two legs on one pool would quote against the same state twice.
   const seen = new Set<string>();
   const legs = candidates.filter((c) => {
